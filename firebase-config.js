@@ -1,5 +1,3 @@
-
-
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAApa7ShBmHrmmam3wvrnFDzg_VrIdz_T0",
@@ -9,6 +7,3 @@ const firebaseConfig = {
   messagingSenderId: "939521070244",
   appId: "1:939521070244:web:9fe1e65cd03f0ae5ebc231"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);

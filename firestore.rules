@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function approvedAdmin() {
+      return signedIn() && myProfile().status == 'approved' && myProfile().role == 'admin';
+    }
+    function approvedUser() {
+      return signedIn() && myProfile().status == 'approved';
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.role == 'user';
+      allow read: if signedIn() && (request.auth.uid == userId || approvedAdmin());
+      allow update, delete: if approvedAdmin();
+    }
+
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['email'])
+                    && request.resource.data.email is string;
+      allow update, delete: if false;
+    }
+
+    match /registries/{registry}/records/{recordId} {
+      allow read, create, update: if approvedUser();
+      allow delete: if approvedAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow create: if approvedUser();
+      allow read: if approvedAdmin();
+      allow update, delete: if false;
+    }
+
+    match /password_reset_requests/{requestId} {
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() > 0
+                    && request.resource.data.username.size() < 60;
+      allow read, update, delete: if approvedAdmin();
+    }
+  }
+}

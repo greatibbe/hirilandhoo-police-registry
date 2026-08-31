@@ -26,6 +26,37 @@
 .badgecount{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:20px;background:var(--red);color:#fff;font-size:9px;padding:0 5px}
 .userrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid #eee9dc}.userrow:last-child{border:0}.uname{font-weight:800}.uinfo{font-size:10px;color:var(--muted);margin-top:3px}.ustatus{font-size:9px;font-weight:800;border-radius:20px;padding:4px 7px;background:#f7eed7;color:var(--amber)}.ustatus.approved{background:#e8f1ea;color:#3e684f}.ustatus.rejected{background:#f5e1dd;color:var(--red)}
 
+
+.bulkbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 10px;background:#eaf0f8;border:1px solid var(--line);border-radius:8px}
+.bulkbar .count{font-size:10px;color:var(--muted);margin-right:auto}
+.bulkbar input,.selectcell input{width:16px;height:16px}
+.bulkbar .dangerbtn,.deletebtn{background:#fff1ef;border-color:#e1b3ab;color:var(--red)}
+.selectcell{display:flex;align-items:center;justify-content:center}
+
+
+/* Module-specific themes */
+body.theme-expats{
+ --g:#14532d;       /* dark green */
+ --g2:#0b351d;
+ --blue:#1f6a3c;
+ --bg:#eef6f0;
+ --line:#c8d9cd;
+}
+body.theme-vehicles{
+ --g:#0b2f5b;       /* dark blue */
+ --g2:#061d3b;
+ --blue:#164f86;
+ --bg:#eef3f9;
+ --line:#cbd6e3;
+}
+body.theme-vessels{
+ --g:#0b5b5b;       /* greeny-blue / teal */
+ --g2:#063b3e;
+ --blue:#117a7a;
+ --bg:#edf7f6;
+ --line:#c4ddda;
+}
+
 </style>
 </head>
 <body>
@@ -129,6 +160,48 @@ function showAuthState(which){
  $("#app").classList.toggle("hidden",which!=="app");
 }
 function audit(action,registry,id,name){return db.collection("auditLogs").add({action,registry,recordId:id||"",recordName:name||"",userId:user.uid,userEmail:user.email,timestamp:firebase.firestore.FieldValue.serverTimestamp()})}
+async function deleteStorageFolder(reg,id){
+ try{
+  const list=await storage.ref(reg+"/"+id).listAll();
+  await Promise.all(list.items.map(item=>item.delete()));
+ }catch(e){console.warn("Storage cleanup skipped:",e)}
+}
+async function deleteOneRecord(reg,record){
+ if(!record)return;
+ if(!confirm("Delete this "+schemas[reg].title.toLowerCase()+" record? This cannot be undone."))return;
+ try{
+  await db.collection("registries").doc(reg).collection("records").doc(record.id).delete();
+  await deleteStorageFolder(reg,record.id);
+  await audit("DELETE",reg,record.id,recordName(reg,record));
+ }catch(e){
+  console.error(e);
+  alert("Delete failed. Check Firebase permissions and connection.");
+ }
+}
+async function bulkDeleteRecords(reg,ids){
+ if(profile?.role!=="admin"){alert("Bulk delete is available to administrators only.");return}
+ const unique=[...new Set(ids)].filter(Boolean);
+ if(!unique.length){alert("Select at least one record.");return}
+ if(!confirm("Permanently delete "+unique.length+" selected records from "+schemas[reg].title+"? This cannot be undone."))return;
+ const records=data[reg].filter(r=>unique.includes(r.id));
+ try{
+  for(let i=0;i<unique.length;i+=400){
+   const batch=db.batch();
+   unique.slice(i,i+400).forEach(id=>{
+    batch.delete(db.collection("registries").doc(reg).collection("records").doc(id));
+   });
+   await batch.commit();
+  }
+  for(const r of records){
+   await deleteStorageFolder(reg,r.id);
+   await audit("BULK_DELETE",reg,r.id,recordName(reg,r));
+  }
+ }catch(e){
+  console.error(e);
+  alert("Bulk delete failed. Check Firebase permissions and connection.");
+ }
+}
+
 function nameToInitials(name){const w=name.trim().split(/\s+/).filter(Boolean);if(!w.length)return "";let i=w.map(x=>x[0]).join("").toLowerCase();if(i.length<2)i=(w[0].slice(0,2)||w[0]).toLowerCase();return i}
 function makeUsername(name,service){const i=nameToInitials(name),n=service.trim().replace(/[^0-9a-zA-Z]/g,"");return i&&n?(i+"_"+n).toLowerCase():""}
 function friendlyAuthError(e){const m={"auth/email-already-in-use":"That email address is already registered.","auth/invalid-email":"That email address is invalid.","auth/weak-password":"Password must be at least 6 characters.","auth/wrong-password":"Incorrect username or password.","auth/user-not-found":"No account found with that username.","auth/invalid-credential":"Incorrect username or password.","auth/too-many-requests":"Too many attempts. Please try again later."};return m[e?.code]||e?.message||"Authentication failed."}
@@ -152,10 +225,65 @@ function closeForm(){$("#formBg").classList.add("hidden");editing=null}
 function recordName(reg,r){return r[schemas[reg].primary[0]]||"Record"}
 function expiryMin(reg,r){const vals=schemas[reg].expiry.map(k=>days(r[k])).filter(x=>x!==null);return vals.length?Math.min(...vals):99999}
 function renderRegistry(reg){
- const host=$("#"+reg),s=schemas[reg];const rows=data[reg];host.innerHTML='<div class="hero"><h2>'+s.icon+' '+s.title+'</h2><p>Hirilandhoo Police official registry</p></div><div class="cards"><div class="metric"><b>'+rows.length+'</b><span>Total records</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>30).length+'</b><span>Valid</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length+'</b><span>Expiring ≤30d</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)<0).length+'</b><span>Expired</span></div><div class="metric"><b>'+rows.filter(r=>r.createdDate===new Date().toISOString().slice(0,10)).length+'</b><span>Added today</span></div></div><div class="toolbar"><div class="search"><input id="search_'+reg+'" placeholder="Search '+s.title.toLowerCase()+'…"></div><select id="filter_'+reg+'"><option value="all">All</option><option value="valid">Valid</option><option value="soon">Expiring</option><option value="expired">Expired</option></select><button class="btn" id="csv_'+reg+'">CSV</button><button class="btn primary" id="new_'+reg+'">＋ New</button></div><div class="panel"><div class="listhead">'+s.title+'</div><div id="list_'+reg+'"></div></div>';
- const draw=()=>{const q=$("#search_"+reg).value.toLowerCase(),f=$("#filter_"+reg).value;const a=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q)).filter(r=>f==="all"||(f==="expired"&&expiryMin(reg,r)<0)||(f==="soon"&&expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30)||(f==="valid"&&expiryMin(reg,r)>30));$("#list_"+reg).innerHTML=a.length?a.map((r,i)=>'<div class="row"><div class="num">'+(i+1)+'</div><div><div class="person">'+esc(recordName(reg,r))+'</div><div class="sub">'+esc(s.primary.slice(1).map(k=>r[k]||"—").join(" · "))+'</div></div><div class="desktop"><div class="sub">Annual fee</div>'+badge(r.annualFeeExpiry||r.passportExpiry)+'</div><div class="desktop"><div class="sub">Insurance / permit</div>'+badge(r.insuranceExpiry||r.permitExpiry)+'</div><div class="desktop"><div class="sub">Roadworthiness / visa</div>'+badge(r.roadworthinessExpiry||r.visaExpiry)+'</div><div class="actions"><button class="btn small" data-v="'+reg+':'+r.id+'">View</button><button class="btn small" data-e="'+reg+':'+r.id+'">Edit</button></div></div>').join(""):'<div class="empty">No records found.</div>';$$("[data-v^='"+reg+":']").forEach(b=>b.onclick=()=>{const id=b.dataset.v.split(":")[1];view(reg,rows.find(x=>x.id===id))});$$("[data-e^='"+reg+":']").forEach(b=>b.onclick=()=>{const id=b.dataset.e.split(":")[1];openForm(reg,rows.find(x=>x.id===id))})};
- $("#search_"+reg).oninput=draw;$("#filter_"+reg).onchange=draw;$("#new_"+reg).onclick=()=>openForm(reg,null);$("#csv_"+reg).onclick=()=>exportCSV(reg);draw()
+ const host=$("#"+reg),s=schemas[reg],rows=data[reg],isAdmin=profile?.role==="admin";
+ host.innerHTML=
+ '<div class="hero"><h2>'+s.icon+' '+s.title+'</h2><p>Hirilandhoo Police official registry</p></div>'+
+ '<div class="cards"><div class="metric"><b>'+rows.length+'</b><span>Total records</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>30).length+'</b><span>Valid</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length+'</b><span>Expiring ≤30d</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)<0).length+'</b><span>Expired</span></div><div class="metric"><b>'+rows.filter(r=>r.createdDate===new Date().toISOString().slice(0,10)).length+'</b><span>Added today</span></div></div>'+
+ '<div class="toolbar"><div class="search"><input id="search_'+reg+'" placeholder="Search '+s.title.toLowerCase()+'…"></div><select id="filter_'+reg+'"><option value="all">All</option><option value="valid">Valid</option><option value="soon">Expiring</option><option value="expired">Expired</option></select><button class="btn" id="csv_'+reg+'">CSV</button><button class="btn primary" id="new_'+reg+'">＋ New</button></div>'+
+ (isAdmin?'<div class="bulkbar"><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete selected</button></div>':'')+
+ '<div class="panel"><div class="listhead">'+s.title+'</div><div id="list_'+reg+'"></div></div>';
+
+ const selected=new Set();
+
+ function updateBulk(){
+  if(!isAdmin)return;
+  const boxes=[...$$("#list_"+reg+" input[data-select-id]")];
+  $("#selectedCount_"+reg).textContent=selected.size+" selected";
+  $("#bulkDelete_"+reg).disabled=selected.size===0;
+  $("#selectAll_"+reg).checked=boxes.length>0&&boxes.every(b=>b.checked);
+ }
+
+ const draw=()=>{
+  selected.clear();
+  const q=$("#search_"+reg).value.toLowerCase(),f=$("#filter_"+reg).value;
+  const a=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q)).filter(r=>f==="all"||(f==="expired"&&expiryMin(reg,r)<0)||(f==="soon"&&expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30)||(f==="valid"&&expiryMin(reg,r)>30));
+  $("#list_"+reg).innerHTML=a.length?a.map((r,i)=>
+   '<div class="row"'+(isAdmin?' style="grid-template-columns:28px 35px 1.4fr 1fr 1fr 1fr auto"':'')+'>'+
+   (isAdmin?'<div class="selectcell"><input type="checkbox" data-select-id="'+r.id+'"></div>':'')+
+   '<div class="num">'+(i+1)+'</div>'+
+   '<div><div class="person">'+esc(recordName(reg,r))+'</div><div class="sub">'+esc(s.primary.slice(1).map(k=>r[k]||"—").join(" · "))+'</div></div>'+
+   '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Home port":"Annual fee")+'</div>'+(reg==="vessels"?esc(r.homePort||"—"):badge(r.annualFeeExpiry||r.passportExpiry))+'</div>'+
+   '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Type":"Insurance / permit")+'</div>'+(reg==="vessels"?esc(r.vesselType||"—"):badge(r.insuranceExpiry||r.permitExpiry))+'</div>'+
+   '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Status":"Roadworthiness / visa")+'</div>'+(reg==="vessels"?'<span class="tag">'+esc(r.status||"Active")+'</span>':badge(r.roadworthinessExpiry||r.visaExpiry))+'</div>'+
+   '<div class="actions"><button class="btn small" data-v="'+reg+':'+r.id+'">View</button><button class="btn small" data-e="'+reg+':'+r.id+'">Edit</button><button class="btn small deletebtn" data-d="'+reg+':'+r.id+'">Delete</button></div></div>'
+  ).join(""):'<div class="empty">No records found.</div>';
+
+  $$("[data-v^='"+reg+":']").forEach(b=>b.onclick=()=>{const id=b.dataset.v.split(":")[1];view(reg,rows.find(x=>x.id===id))});
+  $$("[data-e^='"+reg+":']").forEach(b=>b.onclick=()=>{const id=b.dataset.e.split(":")[1];openForm(reg,rows.find(x=>x.id===id))});
+  $$("[data-d^='"+reg+":']").forEach(b=>b.onclick=()=>{const id=b.dataset.d.split(":")[1];deleteOneRecord(reg,rows.find(x=>x.id===id))});
+
+  if(isAdmin){
+   $$("#list_"+reg+" input[data-select-id]").forEach(cb=>cb.onchange=()=>{cb.checked?selected.add(cb.dataset.selectId):selected.delete(cb.dataset.selectId);updateBulk()});
+   updateBulk();
+  }
+ };
+
+ $("#search_"+reg).oninput=draw;
+ $("#filter_"+reg).onchange=draw;
+ $("#new_"+reg).onclick=()=>openForm(reg,null);
+ $("#csv_"+reg).onclick=()=>exportCSV(reg);
+
+ if(isAdmin){
+  $("#selectAll_"+reg).onchange=e=>{
+   const checked=e.target.checked;
+   $$("#list_"+reg+" input[data-select-id]").forEach(cb=>{cb.checked=checked;checked?selected.add(cb.dataset.selectId):selected.delete(cb.dataset.selectId)});
+   updateBulk();
+  };
+  $("#bulkDelete_"+reg).onclick=()=>bulkDeleteRecords(reg,[...selected]);
+ }
+ draw();
 }
+
 function renderHome(){
  $("#homeExpats").textContent=data.expats.length;$("#homeVehicles").textContent=data.vehicles.length;$("#homeVessels").textContent=data.vessels.length;
  const all=[...data.expats.map(r=>["expats",r]),...data.vehicles.map(r=>["vehicles",r]),...data.vessels.map(r=>["vessels",r])];
@@ -163,7 +291,7 @@ function renderHome(){
  const alerts=all.filter(([reg,r])=>expiryMin(reg,r)<=30).sort((a,b)=>expiryMin(a[0],a[1])-expiryMin(b[0],b[1])).slice(0,12);
  $("#homeAlerts").innerHTML=alerts.length?alerts.map(([reg,r])=>'<div class="alertitem"><b>'+schemas[reg].title+': '+esc(recordName(reg,r))+'</b><div class="sub">'+schemas[reg].expiry.map(k=>r[k]?esc(k)+': '+esc(r[k])+' '+badge(r[k]):"").filter(Boolean).join(" &nbsp; ")+'</div></div>').join(""):'<div class="empty">No document expiry alerts.</div>'
 }
-function view(reg,r){const pairs=Object.entries(r).filter(([k,v])=>!["id","createdAt","updatedAt","createdBy","updatedBy","createdDate"].includes(k)&&!k.startsWith("file_")&&typeof v!=="object");$("#detail").innerHTML='<div class="detail"><h2>'+schemas[reg].icon+' '+esc(recordName(reg,r))+'</h2><div class="actions" style="margin:10px 0"><button id="printRec" class="btn small">Print</button><button id="editRec" class="btn small">Edit</button></div><div class="detailgrid">'+pairs.map(([k,v])=>'<div class="kv"><small>'+esc(k)+'</small><b>'+esc(v||"—")+'</b></div>').join("")+'</div></div>';$("#detailBg").classList.remove("hidden");$("#printRec").onclick=()=>window.print();$("#editRec").onclick=()=>{$("#detailBg").classList.add("hidden");openForm(reg,r)}}
+function view(reg,r){const pairs=Object.entries(r).filter(([k,v])=>!["id","createdAt","updatedAt","createdBy","updatedBy","createdDate"].includes(k)&&!k.startsWith("file_")&&typeof v!=="object");$("#detail").innerHTML='<div class="detail"><h2>'+schemas[reg].icon+' '+esc(recordName(reg,r))+'</h2><div class="actions" style="margin:10px 0"><button id="printRec" class="btn small">Print</button><button id="editRec" class="btn small">Edit</button><button id="deleteRec" class="btn small deletebtn">Delete</button></div><div class="detailgrid">'+pairs.map(([k,v])=>'<div class="kv"><small>'+esc(k)+'</small><b>'+esc(v||"—")+'</b></div>').join("")+'</div></div>';$("#detailBg").classList.remove("hidden");$("#printRec").onclick=()=>window.print();$("#editRec").onclick=()=>{$("#detailBg").classList.add("hidden");openForm(reg,r)};$("#deleteRec").onclick=async()=>{$("#detailBg").classList.add("hidden");await deleteOneRecord(reg,r)}}
 function exportCSV(reg){const rows=data[reg];const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>!["id","createdAt","updatedAt"].includes(k));const out=[keys.join(",")].concat(rows.map(r=>keys.map(k=>'"'+String(r[k]??"").replaceAll('"','""')+'"').join(","))).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([out],{type:"text/csv"}));a.download="hirilandhoo-"+reg+"-registry.csv";a.click()}
 async function save(ev){ev.preventDefault();$("#save").disabled=true;$("#save").textContent="Saving…";$("#formErr").classList.add("hidden");try{const s=schemas[currentRegistry],obj={};s.sections.flatMap(x=>x[1]).forEach(f=>{if(f[0]==="OWNER_SCAN"||f[0]==="EXPAT_SCAN")return;const el=$("#"+f[0]);if(el)obj[f[0]]=el.value.trim()});obj.updatedAt=firebase.firestore.FieldValue.serverTimestamp();obj.updatedBy=user.uid;let ref;if(editing){ref=db.collection("registries").doc(currentRegistry).collection("records").doc(editing.id);await ref.update(obj)}else{obj.createdAt=firebase.firestore.FieldValue.serverTimestamp();obj.createdBy=user.uid;obj.createdDate=new Date().toISOString().slice(0,10);ref=await db.collection("registries").doc(currentRegistry).collection("records").add(obj)}const id=editing?editing.id:ref.id;for(const [k,file] of Object.entries(files)){const sr=storage.ref(currentRegistry+"/"+id+"/"+k+"_"+Date.now());await sr.put(file);const url=await sr.getDownloadURL();await db.collection("registries").doc(currentRegistry).collection("records").doc(id).update({["file_"+k]:url})}await audit(editing?"UPDATE":"CREATE",currentRegistry,id,recordName(currentRegistry,obj));closeForm()}catch(e){console.error(e);$("#formErr").textContent="Unable to save. Check Firebase configuration, permissions and connection.";$("#formErr").classList.remove("hidden")}finally{$("#save").disabled=false;$("#save").textContent="Save record"}}
 async function seedDemoData(){if(profile?.role!=="admin")return;const iso=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)},sets={expats:[
@@ -171,7 +299,14 @@ async function seedDemoData(){if(profile?.role!=="admin")return;const iso=n=>{co
 {registrationNo:"V-DEMO-001",vesselName:"Sea Star",vesselType:"Fishing vessel",homePort:"Hirilandhoo",length:"45 ft",ownerName:"Ahmed Rasheed",ownerId:"A700001",status:"Active"},{registrationNo:"V-DEMO-002",vesselName:"Blue Wave",vesselType:"Speedboat",homePort:"Hirilandhoo",length:"30 ft",ownerName:"Mohamed Nazeer",ownerId:"A700002",status:"Active"},{registrationNo:"V-DEMO-003",vesselName:"Island Queen",vesselType:"Dhoani",homePort:"Hirilandhoo",length:"55 ft",ownerName:"Ibrahim Shareef",ownerId:"A700003",status:"Active"},{registrationNo:"V-DEMO-004",vesselName:"Hirilandhoo Express",vesselType:"Passenger",homePort:"Hirilandhoo",length:"38 ft",ownerName:"Abdulla Riyaz",ownerId:"A700004",status:"Active"},{registrationNo:"V-DEMO-005",vesselName:"Ocean Pearl",vesselType:"Cargo",homePort:"Hirilandhoo",length:"62 ft",ownerName:"Hussain Najeeb",ownerId:"A700005",status:"Active"}]};const types=["Motorcycle","Car","Pickup","Van","Truck","Buggy","Other"];sets.vehicles=types.map((t,i)=>({registrationNo:"DEMO-"+String(i+1).padStart(3,"0"),zone:["A","B","C"][i%3],vehicleType:t,model:["Wave 125","Fit","Hilux","Hiace","Canter","Island Buggy","Utility"][i],year:2020+i%5,colour:["Black","White","Silver","Blue","Red","Green","Grey"][i],chassisNo:"CH-DEMO-"+(1001+i),engineNo:"EN-DEMO-"+(2001+i),fuelType:t==="Buggy"?"Electric":"Petrol",ownerName:["Ahmed Ali","Hassan Mohamed","Ibrahim Rasheed","Ali Nazeer","Mohamed Waheed","Hussain Sameer","Abdulla Riyaz"][i],ownerId:"A"+(600001+i),ownerAddress:"Hirilandhoo",annualFeeNo:"AF-"+(3001+i),annualFeeExpiry:iso(40+i*10),insuranceNo:"INS-"+(4001+i),insuranceExpiry:iso(i===2?20:100+i*10),roadworthinessNo:"RW-"+(5001+i),roadworthinessExpiry:iso(i===5?15:140+i*10),status:"Active"}));for(const reg of Object.keys(sets)){const col=db.collection("registries").doc(reg).collection("records"),snap=await col.limit(1).get();if(snap.empty){const batch=db.batch();sets[reg].forEach(o=>{const ref=col.doc();batch.set(ref,{...o,demo:true,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:user.uid,createdDate:new Date().toISOString().slice(0,10),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:user.uid})});await batch.commit()}}}
 function loadAll(){["expats","vehicles","vessels"].forEach(reg=>db.collection("registries").doc(reg).collection("records").orderBy("createdAt","desc").onSnapshot(s=>{data[reg]=s.docs.map(d=>({id:d.id,...d.data()}));renderRegistry(reg);renderHome()}))}
 function loadAudit(){if(profile?.role!=="admin")return;db.collection("auditLogs").orderBy("timestamp","desc").limit(150).onSnapshot(s=>{$("#auditList").innerHTML=s.docs.map(d=>{const x=d.data(),t=x.timestamp?.toDate?.()?.toLocaleString()||"";return '<div class="auditrow"><b>'+esc(x.action)+'</b> · '+esc(x.registry)+' · '+esc(x.recordName)+'<br>'+esc(x.userEmail)+' · '+t+'</div>'}).join("")||'<div class="empty">No audit records.</div>'})}
-function switchView(v){$$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));["home","expats","vehicles","vessels","users","resets","audit"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==v));if(v==="audit")loadAudit();if(v==="users"||v==="resets")loadUserAdmin()}
+function applyModuleTheme(v){
+ document.body.classList.remove("theme-expats","theme-vehicles","theme-vessels");
+ if(v==="expats")document.body.classList.add("theme-expats");
+ else if(v==="vehicles")document.body.classList.add("theme-vehicles");
+ else if(v==="vessels")document.body.classList.add("theme-vessels");
+ // Home/admin screens keep the default dark-blue theme.
+}
+function switchView(v){applyModuleTheme(v);$$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));["home","expats","vehicles","vessels","users","resets","audit"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==v));if(v==="audit")loadAudit();if(v==="users"||v==="resets")loadUserAdmin()}
 $$(".tab").forEach(t=>t.onclick=()=>switchView(t.dataset.view));$$("[data-open]").forEach(b=>b.onclick=()=>switchView(b.dataset.open));$("#closeForm").onclick=closeForm;$("#cancel").onclick=closeForm;$("#closeDetail").onclick=()=>$("#detailBg").classList.add("hidden");$("#form").onsubmit=save;$("#logout").onclick=()=>auth.signOut();
 
 $("#tabLogin").onclick=()=>{$("#tabLogin").classList.add("active");$("#tabSignup").classList.remove("active");$("#loginCard").classList.remove("hidden");$("#signupCard").classList.add("hidden")};

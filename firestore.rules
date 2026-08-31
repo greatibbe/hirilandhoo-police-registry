@@ -11,6 +11,9 @@ service cloud.firestore {
     function approvedUser() {
       return signedIn() && myProfile().status == 'approved';
     }
+    function canWriteRegistry() {
+      return approvedUser() && (myProfile().role == 'admin' || myProfile().role == 'officer' || myProfile().role == 'user');
+    }
 
     match /users/{userId} {
       allow create: if signedIn()
@@ -18,7 +21,11 @@ service cloud.firestore {
                     && request.resource.data.status == 'pending'
                     && request.resource.data.role == 'user';
       allow read: if signedIn() && (request.auth.uid == userId || approvedAdmin());
-      allow update, delete: if approvedAdmin();
+      allow update: if approvedAdmin()
+                    || (signedIn() && request.auth.uid == userId
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['online','lastSeen','currentModule','activity','sessionStartedAt','entriesTotal','entriesToday','entriesTodayDate']));
+      allow delete: if approvedAdmin();
     }
 
     match /usernames/{username} {
@@ -31,8 +38,8 @@ service cloud.firestore {
     }
 
     match /registries/{registry}/records/{recordId} {
-      allow read, create, update: if approvedUser();
-      allow delete: if approvedAdmin();
+      allow read: if approvedUser();
+      allow create, update, delete: if canWriteRegistry();
     }
 
     match /auditLogs/{logId} {

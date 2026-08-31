@@ -1,5 +1,5 @@
 // Your web app's Firebase configuration
-const firebaseConfig = {
+window.firebaseConfig = {
   apiKey: "AIzaSyAApa7ShBmHrmmam3wvrnFDzg_VrIdz_T0",
   authDomain: "hirilandhoo-police-registry.firebaseapp.com",
   projectId: "hirilandhoo-police-registry",

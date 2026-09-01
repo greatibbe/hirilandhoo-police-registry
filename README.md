@@ -741,3 +741,24 @@ Commit to main.
 Wait for Pages deployment.
 Hard refresh.
 Open User Monitor and read the new Admin diagnostic line.
+
+Version 14.1 - Loading Secure Registry Hotfix
+This hotfix fixes a JavaScript syntax error in v14 that could leave the website permanently showing:
+`Loading secure registry...`
+The problem was an orphaned duplicate section of the previous role-assignment handler.
+Version 14.1:
+removes the duplicate broken JavaScript
+keeps the new Admin role-assignment diagnostics
+keeps mobile role controls
+keeps Dark Mode
+has been JavaScript syntax-checked before packaging
+Update steps
+Extract this ZIP.
+Preserve your real `firebase-config.js` values.
+Replace the files in GitHub.
+Commit to `main`.
+Wait for GitHub Pages deployment to finish.
+Open:
+`https://greatibbe.github.io/hirilandhoo-police-registry/?v=141`
+Press `Ctrl + F5`.
+If the page still does not open, press `F12` in Chrome, open Console, and send a screenshot of the first red error.

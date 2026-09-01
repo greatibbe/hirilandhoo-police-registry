@@ -1,9 +1,67 @@
 rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{registry}/{recordId}/{fileName} {
-      allow read, write: if request.auth != null &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == "approved";
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function approvedAdmin() {
+      return signedIn() && myProfile().status == 'approved' && myProfile().role == 'admin';
+    }
+    function approvedUser() {
+      return signedIn() && myProfile().status == 'approved';
+    }
+    function canWriteRegistry() {
+      return approvedUser() && (myProfile().role == 'admin' || myProfile().role == 'officer' || myProfile().role == 'user');
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.role == 'user';
+      allow read: if signedIn() && (request.auth.uid == userId || approvedAdmin());
+      allow update: if approvedAdmin()
+                    || (signedIn() && request.auth.uid == userId
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['online','lastSeen','currentModule','activity','sessionStartedAt','entriesTotal','entriesToday','entriesTodayDate']));
+      allow delete: if approvedAdmin();
+    }
+
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['email'])
+                    && request.resource.data.email is string;
+      allow update, delete: if false;
+    }
+
+    match /registries/{registry}/records/{recordId} {
+      allow read: if approvedUser();
+      allow create, update, delete: if canWriteRegistry();
+    }
+
+
+    match /registries/expats/records/{recordId}/interactions/{interactionId} {
+      allow read: if approvedUser();
+      allow create: if canWriteRegistry()
+                    && request.resource.data.officerId == request.auth.uid;
+      allow update, delete: if approvedAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow create: if approvedUser();
+      allow read: if approvedAdmin();
+      allow update, delete: if false;
+    }
+
+    match /password_reset_requests/{requestId} {
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() > 0
+                    && request.resource.data.username.size() < 60;
+      allow read, update, delete: if approvedAdmin();
     }
   }
 }

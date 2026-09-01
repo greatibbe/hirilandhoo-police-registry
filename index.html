@@ -187,6 +187,23 @@ body.dark-mode .doc-actions label{background:#1d2a35;color:#e8eef4;border-color:
  .role-select,.assign-role{display:inline-flex!important}
 }
 
+
+/* Version 15: stable Admin role manager */
+.manage-role-btn{white-space:nowrap}
+.role-current{font-size:10px;font-weight:800;text-transform:capitalize}
+.role-manager-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.role-option{display:block;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--card);cursor:pointer}
+.role-option input{margin-right:6px}
+.role-option b{display:block;margin-bottom:4px}
+.role-option span{font-size:9px;color:var(--muted)}
+.role-save-status{min-height:18px;margin-top:8px;font-size:10px;color:var(--muted)}
+body.dark-mode .role-option{background:#151f29;border-color:#31404d;color:#e8eef4}
+@media(max-width:650px){
+ .role-manager-options{grid-template-columns:1fr}
+ .manage-role-btn{width:100%}
+ .role-current{display:block;margin-bottom:5px}
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>">
 </head>
@@ -251,6 +268,44 @@ body.dark-mode .doc-actions label{background:#1d2a35;color:#e8eef4;border-color:
 <div id="adminDiag" style="padding:9px 11px;border-bottom:1px solid var(--line);font-size:10px"></div>
 <div id="usersList"></div></div></div><div id="resets" class="hidden"><div class="panel"><div class="listhead">Password reset requests</div><div id="resetsList"></div></div></div><div id="audit" class="hidden"><div class="panel"><div class="listhead">Audit Log</div><div id="auditList"></div></div></div>
 </main></section>
+
+
+<div id="roleManagerBg" class="modalbg hidden">
+ <div class="modal" style="max-width:620px">
+  <div class="mhead">
+   <div>
+    <h2>Assign User Role</h2>
+    <p id="roleManagerUser">User account</p>
+   </div>
+   <button type="button" class="btn" id="closeRoleManager">✕</button>
+  </div>
+  <form id="roleManagerForm" class="form">
+   <input id="roleManagerUid" type="hidden">
+   <div class="sec">
+    <h3>Select role</h3>
+    <div class="role-manager-options">
+     <label class="role-option">
+      <div><input type="radio" name="managedRole" value="viewer"> <b style="display:inline">Viewer</b></div>
+      <span>Read-only. Can view, search, print and export.</span>
+     </label>
+     <label class="role-option">
+      <div><input type="radio" name="managedRole" value="officer"> <b style="display:inline">Officer</b></div>
+      <span>Can add, edit and delete individual registry records.</span>
+     </label>
+     <label class="role-option">
+      <div><input type="radio" name="managedRole" value="admin"> <b style="display:inline">Admin</b></div>
+      <span>Full access including User Monitor and bulk delete.</span>
+     </label>
+    </div>
+    <div id="roleSaveStatus" class="role-save-status"></div>
+   </div>
+   <div class="mfoot">
+    <button type="button" class="btn" id="cancelRoleManager">Cancel</button>
+    <button type="submit" class="btn primary" id="saveManagedRole">Assign Role</button>
+   </div>
+  </form>
+ </div>
+</div>
 
 <div id="formBg" class="modalbg hidden"><div class="modal"><div class="mhead"><div><h2 id="formTitle">New record</h2><p id="formSub">Registry record</p></div><button class="btn" id="closeForm">✕</button></div><form id="form" class="form"><div id="dynamicForm"></div><div id="formErr" class="error hidden"></div><div class="mfoot"><button type="button" class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save record</button></div></form></div></div>
 
@@ -473,6 +528,10 @@ function applyModuleTheme(v){
 }
 function switchView(v){applyModuleTheme(v);updatePresence(v==="home"?"Home":schemas[v]?.title||v,"Viewing");$$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));["home","expats","vehicles","vessels","users","resets","audit"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==v));if(v==="audit")loadAudit();if(v==="users"||v==="resets")loadUserAdmin()}
 $$(".tab").forEach(t=>t.onclick=()=>switchView(t.dataset.view));$$("[data-open]").forEach(b=>b.onclick=()=>switchView(b.dataset.open));$("#closeForm").onclick=closeForm;$("#cancel").onclick=closeForm;$("#closeDetail").onclick=()=>$("#detailBg").classList.add("hidden");$("#form").onsubmit=save;$("#logout").onclick=()=>auth.signOut();
+$("#roleManagerForm").onsubmit=saveManagedRole;
+$("#closeRoleManager").onclick=closeRoleManager;
+$("#cancelRoleManager").onclick=closeRoleManager;
+
 
 initDarkMode();
 $("#tabLogin").onclick=()=>{$("#tabLogin").classList.add("active");$("#tabSignup").classList.remove("active");$("#loginCard").classList.remove("hidden");$("#signupCard").classList.add("hidden")};
@@ -507,26 +566,105 @@ function renderAdminDiagnostic(){
   +' · status: '+esc(profile?.status||"")
   +' · role: '+esc(profile?.role||"");
 }
+let latestAdminUsers=[];
+let roleManagerTarget=null;
+
+function openRoleManager(uid){
+ const target=latestAdminUsers.find(x=>x.id===uid);
+ if(!target)return;
+ if(uid===user.uid){
+  alert("You cannot change your own Admin role from this screen.");
+  return;
+ }
+ roleManagerTarget=target;
+ const current=target.role==="user"?"officer":(target.role||"officer");
+ $("#roleManagerUid").value=uid;
+ $("#roleManagerUser").textContent=(target.name||target.username||"User")+" · Service "+(target.service_number||"—")+" · Current role: "+current;
+ $$('input[name="managedRole"]').forEach(r=>r.checked=r.value===current);
+ $("#roleSaveStatus").textContent="";
+ $("#roleManagerBg").classList.remove("hidden");
+}
+
+function closeRoleManager(){
+ $("#roleManagerBg").classList.add("hidden");
+ roleManagerTarget=null;
+}
+
+async function saveManagedRole(ev){
+ ev.preventDefault();
+ const uid=$("#roleManagerUid").value;
+ const selected=$('input[name="managedRole"]:checked');
+ const newRole=selected?.value;
+ const status=$("#roleSaveStatus");
+ const saveBtn=$("#saveManagedRole");
+
+ if(!uid||!newRole){
+  status.textContent="Select a role first.";
+  return;
+ }
+ if(profile?.status!=="approved"||profile?.role!=="admin"){
+  status.textContent="Current account is not recognized as an approved Admin.";
+  return;
+ }
+ if(uid===user.uid){
+  status.textContent="You cannot change your own Admin role.";
+  return;
+ }
+
+ const target=latestAdminUsers.find(x=>x.id===uid)||roleManagerTarget;
+ if(!confirm("Assign "+newRole+" role to "+(target?.name||target?.username||"this user")+"?"))return;
+
+ saveBtn.disabled=true;
+ status.textContent="Saving role…";
+
+ try{
+  const ref=db.collection("users").doc(uid);
+  await ref.update({
+   role:newRole,
+   roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+   roleUpdatedBy:user.uid
+  });
+
+  const verifySnap=await ref.get();
+  const savedRole=verifySnap.data()?.role;
+  if(savedRole!==newRole){
+   throw new Error("Role verification failed. Firestore returned: "+savedRole);
+  }
+
+  await audit("ROLE_CHANGE","users",uid,target?.name||target?.username||uid,{details:"Assigned role: "+newRole});
+  status.textContent="✓ Role assigned successfully: "+newRole;
+
+  setTimeout(()=>closeRoleManager(),700);
+ }catch(e){
+  console.error("ROLE MANAGER ERROR",e);
+  const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
+  status.textContent="Failed: "+detail;
+ }finally{
+  saveBtn.disabled=false;
+ }
+}
+
 function loadUserAdmin(){
  if(profile?.role!=="admin"||userAdminLoaded)return;
  userAdminLoaded=true;
  renderAdminDiagnostic();
- let latestUsers=[];
 
  db.collection("users").orderBy("created_at","desc").onSnapshot(s=>{
-  latestUsers=s.docs.map(d=>({id:d.id,...d.data()}));
+  latestAdminUsers=s.docs.map(d=>({id:d.id,...d.data()}));
 
-  const pending=latestUsers.filter(u=>u.status==="pending");
-  const online=latestUsers.filter(u=>u.status==="approved"&&isOnlineProfile(u));
+  const pending=latestAdminUsers.filter(u=>u.status==="pending");
+  const online=latestAdminUsers.filter(u=>u.status==="approved"&&isOnlineProfile(u));
 
   $("#pendingBadge").textContent=pending.length;
   $("#pendingBadge").classList.toggle("hidden",!pending.length);
   $("#monOnline").textContent=online.length;
-  $("#monOfficers").textContent=latestUsers.filter(u=>u.status==="approved"&&["officer","user"].includes(u.role)).length;
-  $("#monToday").textContent=latestUsers.reduce((a,u)=>a+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0),0);
-  $("#monTotal").textContent=latestUsers.reduce((a,u)=>a+Number(u.entriesTotal||0),0);
+  $("#monOfficers").textContent=latestAdminUsers.filter(u=>u.status==="approved"&&["officer","user"].includes(u.role)).length;
+  $("#monToday").textContent=latestAdminUsers.reduce((a,u)=>a+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0),0);
+  $("#monTotal").textContent=latestAdminUsers.reduce((a,u)=>a+Number(u.entriesTotal||0),0);
 
-  $("#usersList").innerHTML=latestUsers.length?latestUsers.map(u=>{
+  if(!$("#roleManagerBg").classList.contains("hidden"))return;
+
+  $("#usersList").innerHTML=latestAdminUsers.length?latestAdminUsers.map(u=>{
    const onlineNow=isOnlineProfile(u);
    const role=u.role==="user"?"officer":(u.role||"officer");
    const last=u.lastSeen?.toDate?.()?.toLocaleString()||"Never";
@@ -537,15 +675,10 @@ function loadUserAdmin(){
     '<div class="monitor-hide"><div class="uinfo">Current</div><span class="activity-pill">'+esc(u.currentModule||"—")+' · '+esc(u.activity||"—")+'</span></div>'+
     '<div class="monitor-hide"><div class="uinfo">Data entries</div><b style="font-size:11px">'+Number(u.entriesTotal||0)+'</b>'+
     '<div class="uinfo">Today: '+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0)+'</div></div>'+
-    '<div class="role-col"><div class="uinfo">Role</div>'+
+    '<div class="role-col"><div class="uinfo">Role</div><span class="role-current">'+esc(role)+'</span>'+
     (u.id===user.uid
-      ?'<span class="ustatus approved">'+esc(role)+'</span><div class="role-msg">Your own admin role cannot be changed here.</div>'
-      :'<div class="role-control"><select class="role-select" data-role-select="'+u.id+'">'+
-        '<option value="viewer" '+(role==="viewer"?'selected':'')+'>Viewer</option>'+
-        '<option value="officer" '+(role==="officer"?'selected':'')+'>Officer</option>'+
-        '<option value="admin" '+(role==="admin"?'selected':'')+'>Admin</option>'+
-        '</select><button type="button" class="btn small assign-role" data-assign-role="'+u.id+'">Assign</button></div>'+
-        '<div class="role-msg" id="rolemsg_'+u.id+'"></div>')+
+      ?'<div class="role-msg">Your own Admin role cannot be changed here.</div>'
+      :'<button type="button" class="btn small manage-role-btn" data-manage-role="'+u.id+'">Manage Role</button>')+
     '</div>'+
     '<div class="actions"><span class="ustatus '+esc(u.status)+'">'+esc(u.status||"pending")+'</span>'+
     (u.id!==user.uid
@@ -558,15 +691,17 @@ function loadUserAdmin(){
     '</div></div>';
   }).join(""):'<div class="empty">No users.</div>';
 
+  $$('[data-manage-role]').forEach(btn=>btn.onclick=()=>openRoleManager(btn.dataset.manageRole));
+
   $$('[data-user-action]').forEach(b=>b.onclick=async()=>{
    const row=b.closest('[data-uid]');
    const id=row.dataset.uid;
    const act=b.dataset.userAction;
-   const target=latestUsers.find(x=>x.id===id);
+   const target=latestAdminUsers.find(x=>x.id===id);
    try{
     if(act==="approve"){
-     const role=(target?.role||"officer")==="user"?"officer":(target?.role||"officer");
-     await db.collection("users").doc(id).update({status:"approved",role});
+     const targetRole=(target?.role||"officer")==="user"?"officer":(target?.role||"officer");
+     await db.collection("users").doc(id).update({status:"approved",role:targetRole});
      await audit("USER_APPROVED","users",id,target?.name||target?.username||id);
     }
     if(act==="reject"||act==="revoke"){
@@ -576,51 +711,6 @@ function loadUserAdmin(){
    }catch(e){
     console.error("USER ACTION ERROR",e);
     alert((e?.code?e.code+": ":"")+(e?.message||String(e)));
-   }
-  });
-
-  $$('[data-assign-role]').forEach(btn=>btn.onclick=async()=>{
-   const uid=btn.dataset.assignRole;
-   const sel=$('[data-role-select="'+uid+'"]');
-   const msg=$("#rolemsg_"+uid);
-   const target=latestUsers.find(x=>x.id===uid);
-   const newRole=sel?.value;
-
-   if(!uid||!sel||!newRole)return;
-   if(profile?.role!=="admin"||profile?.status!=="approved"){
-    if(msg)msg.textContent="Not recognized as approved Admin.";
-    alert("Your Firestore profile must have status=approved and role=admin.");
-    return;
-   }
-   if(uid===user.uid){
-    alert("You cannot change your own Admin role here.");
-    return;
-   }
-   if(!confirm("Assign "+newRole+" role to "+(target?.name||target?.username||"this user")+"?"))return;
-
-   btn.disabled=true;
-   if(msg)msg.textContent="Assigning…";
-
-   try{
-    const ref=db.collection("users").doc(uid);
-    await ref.update({
-     role:newRole,
-     roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-     roleUpdatedBy:user.uid
-    });
-
-    const verifySnap=await ref.get();
-    if(verifySnap.data()?.role!==newRole)throw new Error("Role update did not persist.");
-
-    await audit("ROLE_CHANGE","users",uid,target?.name||target?.username||uid,{details:"Assigned role: "+newRole});
-    if(msg)msg.textContent="✓ Role assigned: "+newRole;
-   }catch(e){
-    console.error("ROLE ASSIGN ERROR",e);
-    const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
-    if(msg)msg.textContent="Failed: "+detail;
-    alert("Role assignment failed.\n\n"+detail);
-   }finally{
-    btn.disabled=false;
    }
   });
  });
@@ -633,27 +723,85 @@ function loadUserAdmin(){
   $("#resetBadge").classList.toggle("hidden",!pending.length);
 
   $("#resetsList").innerHTML=reqs.length?reqs.map(r=>{
-   const u=latestUsers.find(x=>x.username===r.username);
-   return '<div class="userrow" data-reset="'+r.id+'"><div><div class="uname">'+esc(r.username)+'</div>'+
+   const u=latestAdminUsers.find(x=>x.username===r.username);
+   return '<div class="userrow" data-reset="'+r.id+'">'+
+    '<div><div class="uname">'+esc(r.username)+'</div>'+
     '<div class="uinfo">'+esc(u?.name||"Unknown account")+(u?.recovery_email?" · "+esc(u.recovery_email):"")+'</div></div>'+
-    '<div class="actions"><span class="ustatus '+esc(r.status)+'">'+esc(r.status)+'</span>'+
+    '<div class="actions">'+
+    '<span class="ustatus '+esc(r.status)+'">'+esc(r.status)+'</span>'+
     (r.status==="pending"&&u?.recovery_email?'<button class="btn small" data-send-reset="1">Send reset email</button>':"")+
+    '<button class="btn small deletebtn" data-delete-reset="1">Remove Request</button>'+
     '</div></div>';
   }).join(""):'<div class="empty">No reset requests.</div>';
 
   $$('[data-send-reset]').forEach(b=>b.onclick=async()=>{
    const row=b.closest('[data-reset]');
+   const requestId=row?.dataset?.reset;
+   if(!requestId)return;
+
+   const originalText=b.textContent;
+   b.disabled=true;
+   b.textContent="Sending…";
+
    try{
-    const doc=await db.collection("password_reset_requests").doc(row.dataset.reset).get();
-    const r=doc.data();
-    const u=latestUsers.find(x=>x.username===r.username);
-    if(!u?.recovery_email)return;
+    const requestRef=db.collection("password_reset_requests").doc(requestId);
+    const snap=await requestRef.get();
+    if(!snap.exists){
+     row?.remove();
+     return;
+    }
+
+    const r=snap.data();
+    const u=latestAdminUsers.find(x=>x.username===r.username);
+    if(!u?.recovery_email)throw new Error("No recovery email found for this user.");
 
     await auth.sendPasswordResetEmail(u.recovery_email);
-    await audit("PASSWORD_RESET_APPROVED","resets",row.dataset.reset,u?.name||u?.username||r.username,{details:"Password reset email sent to recovery email"});
-    await db.collection("password_reset_requests").doc(row.dataset.reset).delete();
+
+    await audit(
+      "PASSWORD_RESET_APPROVED",
+      "resets",
+      requestId,
+      u?.name||u?.username||r.username,
+      {details:"Password reset email sent and request removed"}
+    );
+
+    await requestRef.delete();
+
+    const verifySnap=await requestRef.get();
+    if(verifySnap.exists)throw new Error("Reset request deletion did not persist.");
+
+    row?.remove();
+
+    const remaining=$$("#resetsList [data-reset]").length;
+    $("#resetBadge").textContent=remaining;
+    $("#resetBadge").classList.toggle("hidden",remaining===0);
+    if(remaining===0)$("#resetsList").innerHTML='<div class="empty">No reset requests.</div>';
    }catch(e){
-    console.error("RESET ERROR",e);
+    console.error("PASSWORD RESET PROCESS ERROR",e);
+    const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
+    alert("Password reset processing failed.\n\n"+detail);
+    b.disabled=false;
+    b.textContent=originalText;
+   }
+  });
+
+  $$('[data-delete-reset]').forEach(b=>b.onclick=async()=>{
+   const row=b.closest('[data-reset]');
+   const requestId=row?.dataset?.reset;
+   if(!requestId)return;
+   if(!confirm("Remove this password-reset request without sending another email?"))return;
+
+   try{
+    await db.collection("password_reset_requests").doc(requestId).delete();
+    await audit("PASSWORD_RESET_REQUEST_REMOVED","resets",requestId,"Reset request",{details:"Removed manually by Admin"});
+    row?.remove();
+
+    const remaining=$$("#resetsList [data-reset]").length;
+    $("#resetBadge").textContent=remaining;
+    $("#resetBadge").classList.toggle("hidden",remaining===0);
+    if(remaining===0)$("#resetsList").innerHTML='<div class="empty">No reset requests.</div>';
+   }catch(e){
+    console.error("RESET DELETE ERROR",e);
     alert((e?.code?e.code+": ":"")+(e?.message||String(e)));
    }
   });

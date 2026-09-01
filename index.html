@@ -188,6 +188,7 @@ body.dark-mode .doc-actions label{background:#1d2a35;color:#e8eef4;border-color:
 }
 
 </style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>">
 </head>
 <body>
 <div id="boot" class="empty">Loading secure registry…</div>
@@ -507,18 +508,77 @@ function renderAdminDiagnostic(){
   +' · role: '+esc(profile?.role||"");
 }
 function loadUserAdmin(){
- if(profile?.role!=="admin"||userAdminLoaded)return;userAdminLoaded=true;renderAdminDiagnostic();
+ if(profile?.role!=="admin"||userAdminLoaded)return;
+ userAdminLoaded=true;
+ renderAdminDiagnostic();
  let latestUsers=[];
+
  db.collection("users").orderBy("created_at","desc").onSnapshot(s=>{
   latestUsers=s.docs.map(d=>({id:d.id,...d.data()}));
-  const pending=latestUsers.filter(u=>u.status==="pending"),online=latestUsers.filter(u=>u.status==="approved"&&isOnlineProfile(u));
-  $("#pendingBadge").textContent=pending.length;$("#pendingBadge").classList.toggle("hidden",!pending.length);
+
+  const pending=latestUsers.filter(u=>u.status==="pending");
+  const online=latestUsers.filter(u=>u.status==="approved"&&isOnlineProfile(u));
+
+  $("#pendingBadge").textContent=pending.length;
+  $("#pendingBadge").classList.toggle("hidden",!pending.length);
   $("#monOnline").textContent=online.length;
   $("#monOfficers").textContent=latestUsers.filter(u=>u.status==="approved"&&["officer","user"].includes(u.role)).length;
   $("#monToday").textContent=latestUsers.reduce((a,u)=>a+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0),0);
   $("#monTotal").textContent=latestUsers.reduce((a,u)=>a+Number(u.entriesTotal||0),0);
-  $("#usersList").innerHTML=latestUsers.length?latestUsers.map(u=>{const onlineNow=isOnlineProfile(u),role=u.role==="user"?"officer":(u.role||"officer"),last=u.lastSeen?.toDate?.()?.toLocaleString()||"Never";return '<div class="userrow monitor" data-uid="'+u.id+'"><div><div class="uname"><span class="presence-dot '+(onlineNow?'online':'offline')+'"></span>'+esc(u.name||u.username)+'</div><div class="uinfo">'+esc(u.username||"")+' · Service '+esc(u.service_number||"")+' · '+esc(u.recovery_email||"")+'<br>Last seen: '+esc(last)+'</div></div><div class="monitor-hide"><div class="uinfo">Current</div><span class="activity-pill">'+esc(u.currentModule||"—")+' · '+esc(u.activity||"—")+'</span></div><div class="monitor-hide"><div class="uinfo">Data entries</div><b style="font-size:11px">'+Number(u.entriesTotal||0)+'</b><div class="uinfo">Today: '+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0)+'</div></div><div class="role-col"><div class="uinfo">Role</div>'+(u.id===user.uid?'<span class="ustatus approved">'+esc(role)+'</span><div class="role-msg">Your own admin role cannot be changed here.</div>':'<div class="role-control"><select class="role-select" data-role-select="'+u.id+'"><option value="viewer" '+(role==="viewer"?'selected':'')+'>Viewer</option><option value="officer" '+(role==="officer"?'selected':'')+'>Officer</option><option value="admin" '+(role==="admin"?'selected':'')+'>Admin</option></select><button type="button" class="btn small assign-role" data-assign-role="'+u.id+'">Assign</button></div><div class="role-msg" id="rolemsg_'+u.id+'"></div>')+'</div><div class="actions"><span class="ustatus '+esc(u.status)+'">'+esc(u.status||"pending")+'</span>'+(u.id!==user.uid?(u.status==="pending"?'<button class="btn small" data-user-action="approve">Approve</button><button class="btn small" data-user-action="reject">Reject</button>':u.status==="approved"?'<button class="btn small" data-user-action="revoke">Revoke</button>':'<button class="btn small" data-user-action="approve">Approve</button>'):'')+'</div></div>'}).join(""):'<div class="empty">No users.</div>';
-  $$('[data-user-action]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-uid]'),id=row.dataset.uid,act=b.dataset.userAction;if(act==="approve")await db.collection("users").doc(id).update({status:"approved",role:(latestUsers.find(x=>x.id===id)?.role||"officer")==="user"?"officer":(latestUsers.find(x=>x.id===id)?.role||"officer")});if(act==="reject"||act==="revoke")await db.collection("users").doc(id).update({status:"rejected",online:false})});
+
+  $("#usersList").innerHTML=latestUsers.length?latestUsers.map(u=>{
+   const onlineNow=isOnlineProfile(u);
+   const role=u.role==="user"?"officer":(u.role||"officer");
+   const last=u.lastSeen?.toDate?.()?.toLocaleString()||"Never";
+
+   return '<div class="userrow monitor" data-uid="'+u.id+'">'+
+    '<div><div class="uname"><span class="presence-dot '+(onlineNow?'online':'offline')+'"></span>'+esc(u.name||u.username)+'</div>'+
+    '<div class="uinfo">'+esc(u.username||"")+' · Service '+esc(u.service_number||"")+' · '+esc(u.recovery_email||"")+'<br>Last seen: '+esc(last)+'</div></div>'+
+    '<div class="monitor-hide"><div class="uinfo">Current</div><span class="activity-pill">'+esc(u.currentModule||"—")+' · '+esc(u.activity||"—")+'</span></div>'+
+    '<div class="monitor-hide"><div class="uinfo">Data entries</div><b style="font-size:11px">'+Number(u.entriesTotal||0)+'</b>'+
+    '<div class="uinfo">Today: '+(u.entriesTodayDate===new Date().toISOString().slice(0,10)?Number(u.entriesToday||0):0)+'</div></div>'+
+    '<div class="role-col"><div class="uinfo">Role</div>'+
+    (u.id===user.uid
+      ?'<span class="ustatus approved">'+esc(role)+'</span><div class="role-msg">Your own admin role cannot be changed here.</div>'
+      :'<div class="role-control"><select class="role-select" data-role-select="'+u.id+'">'+
+        '<option value="viewer" '+(role==="viewer"?'selected':'')+'>Viewer</option>'+
+        '<option value="officer" '+(role==="officer"?'selected':'')+'>Officer</option>'+
+        '<option value="admin" '+(role==="admin"?'selected':'')+'>Admin</option>'+
+        '</select><button type="button" class="btn small assign-role" data-assign-role="'+u.id+'">Assign</button></div>'+
+        '<div class="role-msg" id="rolemsg_'+u.id+'"></div>')+
+    '</div>'+
+    '<div class="actions"><span class="ustatus '+esc(u.status)+'">'+esc(u.status||"pending")+'</span>'+
+    (u.id!==user.uid
+      ?(u.status==="pending"
+        ?'<button class="btn small" data-user-action="approve">Approve</button><button class="btn small" data-user-action="reject">Reject</button>'
+        :u.status==="approved"
+          ?'<button class="btn small" data-user-action="revoke">Revoke</button>'
+          :'<button class="btn small" data-user-action="approve">Approve</button>')
+      :'')+
+    '</div></div>';
+  }).join(""):'<div class="empty">No users.</div>';
+
+  $$('[data-user-action]').forEach(b=>b.onclick=async()=>{
+   const row=b.closest('[data-uid]');
+   const id=row.dataset.uid;
+   const act=b.dataset.userAction;
+   const target=latestUsers.find(x=>x.id===id);
+   try{
+    if(act==="approve"){
+     const role=(target?.role||"officer")==="user"?"officer":(target?.role||"officer");
+     await db.collection("users").doc(id).update({status:"approved",role});
+     await audit("USER_APPROVED","users",id,target?.name||target?.username||id);
+    }
+    if(act==="reject"||act==="revoke"){
+     await db.collection("users").doc(id).update({status:"rejected",online:false});
+     await audit(act==="reject"?"USER_REJECTED":"USER_REVOKED","users",id,target?.name||target?.username||id);
+    }
+   }catch(e){
+    console.error("USER ACTION ERROR",e);
+    alert((e?.code?e.code+": ":"")+(e?.message||String(e)));
+   }
+  });
+
   $$('[data-assign-role]').forEach(btn=>btn.onclick=async()=>{
    const uid=btn.dataset.assignRole;
    const sel=$('[data-role-select="'+uid+'"]');
@@ -526,68 +586,78 @@ function loadUserAdmin(){
    const target=latestUsers.find(x=>x.id===uid);
    const newRole=sel?.value;
 
-   if(!uid||!sel||!newRole){
-    if(msg)msg.textContent="Role control error. Refresh the page and try again.";
-    return;
-   }
-
+   if(!uid||!sel||!newRole)return;
    if(profile?.role!=="admin"||profile?.status!=="approved"){
-    if(msg)msg.textContent="Your current account is not recognized as an approved Admin.";
-    alert("Role assignment is blocked because your current Firestore profile is not status=approved and role=admin.");
+    if(msg)msg.textContent="Not recognized as approved Admin.";
+    alert("Your Firestore profile must have status=approved and role=admin.");
     return;
    }
-
    if(uid===user.uid){
-    alert("You cannot change your own Admin role from this screen.");
+    alert("You cannot change your own Admin role here.");
     return;
    }
-
-   const displayName=target?.name||target?.username||"this user";
-   if(!confirm("Assign "+newRole+" role to "+displayName+"?"))return;
+   if(!confirm("Assign "+newRole+" role to "+(target?.name||target?.username||"this user")+"?"))return;
 
    btn.disabled=true;
-   if(msg)msg.textContent="Assigning "+newRole+"…";
+   if(msg)msg.textContent="Assigning…";
 
    try{
     const ref=db.collection("users").doc(uid);
+    await ref.update({
+     role:newRole,
+     roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+     roleUpdatedBy:user.uid
+    });
 
-    // First read the target user so we can detect missing/mismatched document IDs.
-    const snap=await ref.get();
-    if(!snap.exists)throw new Error("Target user profile does not exist at users/"+uid);
+    const verifySnap=await ref.get();
+    if(verifySnap.data()?.role!==newRole)throw new Error("Role update did not persist.");
 
-    // Use set({role}, {merge:true}) which is robust for profile updates.
-    await ref.set({
-      role:newRole,
-      roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      roleUpdatedBy:user.uid
-    },{merge:true});
-
-    // Verify it actually changed in Firestore.
-    const verify=await ref.get();
-    const actual=verify.data()?.role;
-    if(actual!==newRole)throw new Error("Role update did not persist. Firestore returned role="+actual);
-
-    await audit("ROLE_CHANGE","users",uid,displayName,{details:"Assigned role: "+newRole});
-
+    await audit("ROLE_CHANGE","users",uid,target?.name||target?.username||uid,{details:"Assigned role: "+newRole});
     if(msg)msg.textContent="✓ Role assigned: "+newRole;
    }catch(e){
     console.error("ROLE ASSIGN ERROR",e);
-    const code=e?.code||"";
-    const detail=e?.message||String(e);
-    if(msg)msg.textContent="Failed: "+(code||detail);
-    alert(
-      "Role assignment failed.\n\n"+
-      "Firebase error: "+(code||"unknown")+"\n"+
-      detail+"\n\n"+
-      "Check that your own Firestore user document has status = approved and role = admin, and that the latest Firestore rules are published."
-    );
+    const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
+    if(msg)msg.textContent="Failed: "+detail;
+    alert("Role assignment failed.\n\n"+detail);
    }finally{
     btn.disabled=false;
    }
   });
-
  });
- db.collection("password_reset_requests").orderBy("requested_at","desc").onSnapshot(s=>{const reqs=s.docs.map(d=>({id:d.id,...d.data()})),pending=reqs.filter(r=>r.status==="pending");$("#resetBadge").textContent=pending.length;$("#resetBadge").classList.toggle("hidden",!pending.length);$("#resetsList").innerHTML=reqs.length?reqs.map(r=>{const u=latestUsers.find(x=>x.username===r.username);return '<div class="userrow" data-reset="'+r.id+'"><div><div class="uname">'+esc(r.username)+'</div><div class="uinfo">'+esc(u?.name||"Unknown account")+(u?.recovery_email?" · "+esc(u.recovery_email):"")+'</div></div><div class="actions"><span class="ustatus '+esc(r.status)+'">'+esc(r.status)+'</span>'+(r.status==="pending"&&u?.recovery_email?'<button class="btn small" data-send-reset="1">Send reset email</button>':"")+'</div></div>'}).join(""):'<div class="empty">No reset requests.</div>';$$('[data-send-reset]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-reset]'),doc=await db.collection("password_reset_requests").doc(row.dataset.reset).get(),r=doc.data(),u=latestUsers.find(x=>x.username===r.username);if(!u?.recovery_email)return;await auth.sendPasswordResetEmail(u.recovery_email);await audit("PASSWORD_RESET_APPROVED","resets",row.dataset.reset,u?.name||u?.username||r.username,{details:"Password reset email sent to recovery email"});await db.collection("password_reset_requests").doc(row.dataset.reset).delete()})});
+
+ db.collection("password_reset_requests").orderBy("requested_at","desc").onSnapshot(s=>{
+  const reqs=s.docs.map(d=>({id:d.id,...d.data()}));
+  const pending=reqs.filter(r=>r.status==="pending");
+
+  $("#resetBadge").textContent=pending.length;
+  $("#resetBadge").classList.toggle("hidden",!pending.length);
+
+  $("#resetsList").innerHTML=reqs.length?reqs.map(r=>{
+   const u=latestUsers.find(x=>x.username===r.username);
+   return '<div class="userrow" data-reset="'+r.id+'"><div><div class="uname">'+esc(r.username)+'</div>'+
+    '<div class="uinfo">'+esc(u?.name||"Unknown account")+(u?.recovery_email?" · "+esc(u.recovery_email):"")+'</div></div>'+
+    '<div class="actions"><span class="ustatus '+esc(r.status)+'">'+esc(r.status)+'</span>'+
+    (r.status==="pending"&&u?.recovery_email?'<button class="btn small" data-send-reset="1">Send reset email</button>':"")+
+    '</div></div>';
+  }).join(""):'<div class="empty">No reset requests.</div>';
+
+  $$('[data-send-reset]').forEach(b=>b.onclick=async()=>{
+   const row=b.closest('[data-reset]');
+   try{
+    const doc=await db.collection("password_reset_requests").doc(row.dataset.reset).get();
+    const r=doc.data();
+    const u=latestUsers.find(x=>x.username===r.username);
+    if(!u?.recovery_email)return;
+
+    await auth.sendPasswordResetEmail(u.recovery_email);
+    await audit("PASSWORD_RESET_APPROVED","resets",row.dataset.reset,u?.name||u?.username||r.username,{details:"Password reset email sent to recovery email"});
+    await db.collection("password_reset_requests").doc(row.dataset.reset).delete();
+   }catch(e){
+    console.error("RESET ERROR",e);
+    alert((e?.code?e.code+": ":"")+(e?.message||String(e)));
+   }
+  });
+ });
 }
 auth.onAuthStateChanged(async u=>{user=u;userAdminLoaded=false;if(!u){profile=null;showAuthState("login");return}try{db.collection("users").doc(u.uid).onSnapshot(async p=>{if(!p.exists){showAuthState("login");return}profile=p.data();if(profile.status==="pending"){showAuthState("pending");return}if(profile.status!=="approved"){showAuthState("rejected");return}$("#who").textContent=profile.name||u.email;if(profile.role!=="admin")$$(".admin").forEach(x=>x.classList.add("hidden"));else $$(".admin").forEach(x=>x.classList.remove("hidden"));showAuthState("app");startPresence();await seedDemoData();loadAll()})}catch(e){await auth.signOut();$("#loginErr").textContent="Unable to verify account.";$("#loginErr").classList.remove("hidden")}})
 })();

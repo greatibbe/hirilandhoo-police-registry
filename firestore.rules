@@ -42,6 +42,14 @@ service cloud.firestore {
       allow create, update, delete: if canWriteRegistry();
     }
 
+
+    match /registries/expats/records/{recordId}/interactions/{interactionId} {
+      allow read: if approvedUser();
+      allow create: if canWriteRegistry()
+                    && request.resource.data.officerId == request.auth.uid;
+      allow update, delete: if approvedAdmin();
+    }
+
     match /auditLogs/{logId} {
       allow create: if approvedUser();
       allow read: if approvedAdmin();

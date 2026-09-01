@@ -585,16 +585,7 @@ function loadUserAdmin(){
     btn.disabled=false;
    }
   });
-    await audit("ROLE_CHANGE","users",uid,target?.name||target?.username||uid);
-    if(msg)msg.textContent="Role assigned: "+newRole;
-   }catch(e){
-    console.error(e);
-    if(msg)msg.textContent="Could not change role. Check Firestore rules and Admin access.";
-    alert("Role change failed. Make sure you are signed in as Admin and the latest Firestore rules are published.");
-   }finally{
-    btn.disabled=false;
-   }
-  });
+
  });
  db.collection("password_reset_requests").orderBy("requested_at","desc").onSnapshot(s=>{const reqs=s.docs.map(d=>({id:d.id,...d.data()})),pending=reqs.filter(r=>r.status==="pending");$("#resetBadge").textContent=pending.length;$("#resetBadge").classList.toggle("hidden",!pending.length);$("#resetsList").innerHTML=reqs.length?reqs.map(r=>{const u=latestUsers.find(x=>x.username===r.username);return '<div class="userrow" data-reset="'+r.id+'"><div><div class="uname">'+esc(r.username)+'</div><div class="uinfo">'+esc(u?.name||"Unknown account")+(u?.recovery_email?" · "+esc(u.recovery_email):"")+'</div></div><div class="actions"><span class="ustatus '+esc(r.status)+'">'+esc(r.status)+'</span>'+(r.status==="pending"&&u?.recovery_email?'<button class="btn small" data-send-reset="1">Send reset email</button>':"")+'</div></div>'}).join(""):'<div class="empty">No reset requests.</div>';$$('[data-send-reset]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-reset]'),doc=await db.collection("password_reset_requests").doc(row.dataset.reset).get(),r=doc.data(),u=latestUsers.find(x=>x.username===r.username);if(!u?.recovery_email)return;await auth.sendPasswordResetEmail(u.recovery_email);await audit("PASSWORD_RESET_APPROVED","resets",row.dataset.reset,u?.name||u?.username||r.username,{details:"Password reset email sent to recovery email"});await db.collection("password_reset_requests").doc(row.dataset.reset).delete()})});
 }

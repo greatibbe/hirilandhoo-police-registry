@@ -1,187 +1,67 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
-    }
-
+    function signedIn() { return request.auth != null; }
     function myProfile() {
-      return get(
-        /databases/$(database)/documents/users/$(request.auth.uid)
-      ).data;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
     function approvedAdmin() {
-      return signedIn()
-        && myProfile().status == 'approved'
-        && myProfile().role == 'admin';
+      return signedIn() && myProfile().status == 'approved' && myProfile().role == 'admin';
     }
-
     function approvedUser() {
-      return signedIn()
-        && myProfile().status == 'approved';
+      return signedIn() && myProfile().status == 'approved';
     }
-
     function canWriteRegistry() {
-      return approvedUser()
-        && (
-          myProfile().role == 'admin'
-          || myProfile().role == 'officer'
-          || myProfile().role == 'user'
-        );
+      return approvedUser() && (myProfile().role == 'admin' || myProfile().role == 'officer' || myProfile().role == 'user');
     }
-
-
-    // =========================================================
-    // USERS
-    // =========================================================
 
     match /users/{userId} {
-
-      // New users can create only their own pending account
       allow create: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.status == 'pending'
-        && request.resource.data.role == 'user';
-
-      // User can read own profile
-      // Admin can read all profiles
-      allow read: if signedIn()
-        && (
-          request.auth.uid == userId
-          || approvedAdmin()
-        );
-
-      // Admin can update any user profile.
-      //
-      // Normal approved users may update ONLY their own
-      // online/activity/statistics fields.
+                    && request.auth.uid == userId
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.role == 'user';
+      allow read: if signedIn() && (request.auth.uid == userId || approvedAdmin());
       allow update: if approvedAdmin()
-        || (
-          signedIn()
-          && request.auth.uid == userId
-          && request.resource.data
-            .diff(resource.data)
-            .affectedKeys()
-            .hasOnly([
-              'online',
-              'lastSeen',
-              'currentModule',
-              'activity',
-              'sessionStartedAt',
-              'entriesTotal',
-              'entriesToday',
-              'entriesTodayDate'
-            ])
-        );
-
-      // Only Admin may delete users
+                    || (signedIn() && request.auth.uid == userId
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['online','lastSeen','currentModule','activity','sessionStartedAt','entriesTotal','entriesToday','entriesTodayDate']));
       allow delete: if approvedAdmin();
     }
 
-
-    // =========================================================
-    // USERNAME LOOKUP
-    // =========================================================
-
     match /usernames/{username} {
-
-      // Needed before login to convert username to recovery/login email
       allow get: if true;
-
       allow list: if false;
-
-      // Newly authenticated registration can create username mapping
-      allow create: if signedIn()
-        && request.resource.data.keys().hasOnly([
-          'email'
-        ])
-        && request.resource.data.email is string;
-
-      // Username mappings cannot be changed from frontend
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['email'])
+                    && request.resource.data.email is string;
       allow update, delete: if false;
     }
 
-
-    // =========================================================
-    // REGISTRIES
-    // EXPATS / VEHICLES / VESSELS
-    // =========================================================
-
     match /registries/{registry}/records/{recordId} {
-
-      // Viewer / Officer / Admin can read
       allow read: if approvedUser();
-
-      // Officer and Admin can create/edit/delete
-      // Viewer cannot
       allow create, update, delete: if canWriteRegistry();
     }
 
 
-    // =========================================================
-    // EXPAT POLICE INTERACTIONS
-    // =========================================================
-
     match /registries/expats/records/{recordId}/interactions/{interactionId} {
-
-      // Approved users can view interaction history
       allow read: if approvedUser();
-
-      // Officer/Admin can create an interaction
-      // Officer ID must be their own Firebase UID
       allow create: if canWriteRegistry()
-        && request.resource.data.officerId == request.auth.uid;
-
-      // Only Admin may change/delete an interaction
+                    && request.resource.data.officerId == request.auth.uid;
       allow update, delete: if approvedAdmin();
     }
 
-
-    // =========================================================
-    // AUDIT / OFFICER ACTIVITY LOG
-    // =========================================================
-
     match /auditLogs/{logId} {
-
-      // Approved users can write their activity
       allow create: if approvedUser();
-
-      // Only Admin can view activity logs
       allow read: if approvedAdmin();
-
-      // Audit logs are permanent from frontend
       allow update, delete: if false;
     }
 
-
-    // =========================================================
-    // PASSWORD RESET REQUESTS
-    // =========================================================
-
     match /password_reset_requests/{requestId} {
-
-      // Allows a username-based reset request
-      // before the user is authenticated
-      allow create: if
-        request.resource.data.status == 'pending'
-        && request.resource.data.username is string
-        && request.resource.data.username.size() > 0
-        && request.resource.data.username.size() < 60;
-
-      // Admin can view, process and remove requests
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() > 0
+                    && request.resource.data.username.size() < 60;
       allow read, update, delete: if approvedAdmin();
-    }
-
-
-    // =========================================================
-    // DENY EVERYTHING ELSE
-    // =========================================================
-
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }

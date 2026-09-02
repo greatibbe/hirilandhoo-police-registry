@@ -762,3 +762,209 @@ Open:
 `https://greatibbe.github.io/hirilandhoo-police-registry/?v=141`
 Press `Ctrl + F5`.
 If the page still does not open, press `F12` in Chrome, open Console, and send a screenshot of the first red error.
+
+Version 14.3 - Complete User Monitor Syntax Repair
+This version replaces the entire `loadUserAdmin()` block with a clean implementation.
+It fixes the Chrome error:
+`Uncaught SyntaxError: await is only valid in async functions`
+The build was checked using:
+`node --check`
+before the ZIP was created.
+Update
+Extract this ZIP.
+Keep your real `firebase-config.js`.
+Replace your GitHub repository files, especially `index.html`.
+Commit to `main`.
+Wait for Pages deployment.
+Open:
+`https://greatibbe.github.io/hirilandhoo-police-registry/?v=143`
+Press `Ctrl + F5`.
+If the Console still reports the old line 588 error, GitHub Pages is still serving an older cached deployment.
+
+Version 15 - Stable Admin Role Manager
+Why the old dropdown blinked
+The User Monitor uses a live Firestore listener.
+Online-status and activity updates can cause the user list to be rendered again. An inline dropdown inside that live list can therefore be replaced while the Admin is trying to change it.
+Version 15 removes the inline role dropdown.
+New role workflow
+Admin:
+Open User Monitor.
+Find the user.
+Tap/click Manage Role.
+A separate Role Manager popup opens.
+Select:
+Viewer
+Officer
+Admin
+Tap Assign Role.
+Confirm.
+The app updates Firestore and verifies the saved role.
+The Role Manager popup is outside the live user list, so online-status updates cannot replace the role controls while they are being used.
+Mobile
+The Manage Role button is fully visible on mobile.
+The Role Manager shows the three roles as large selectable options, making it easier to use on a phone than a small dropdown.
+Role verification
+After saving, the app reads the Firestore user document again and checks that:
+`role == selected role`
+If not, it displays an error.
+Required Admin profile
+The logged-in Admin Firestore document must contain:
+```text
+status: approved
+role: admin
+```
+and its document ID must match the Firebase Authentication UID.
+Firebase rules
+The existing v14 Firestore rules already allow an approved Admin to update user profiles.
+If you changed Firebase projects, publish `firestore.rules` again in the new project.
+Deployment
+Extract the ZIP.
+Keep your real `firebase-config.js`.
+Replace the GitHub repository files.
+Commit to `main`.
+Wait for Pages deployment.
+Open:
+`https://greatibbe.github.io/hirilandhoo-police-registry/?v=150`
+Press `Ctrl + F5`.
+
+Version 16 - Password Reset Request Removal Fix
+Fixed behavior
+When Admin clicks Send reset email:
+Firebase sends the reset email.
+The action is recorded in the Audit Log.
+The Firestore request document is deleted.
+The app reads the request again to verify it was deleted.
+The row is removed immediately from the Reset tab.
+The Reset badge is updated immediately.
+If deletion fails, the exact Firebase error is shown.
+Manual Remove Request option
+Each reset request also has:
+Remove Request
+This removes a stale request without sending another reset email.
+The manual removal is logged as:
+`PASSWORD_RESET_REQUEST_REMOVED`
+Firestore requirement
+The rules must allow Admin to delete reset requests:
+```text
+match /password_reset_requests/{requestId} {
+  allow create: if ...;
+  allow read, update, delete: if approvedAdmin();
+}
+```
+If deletion is denied, verify that the signed-in Admin Firestore profile contains:
+```text
+status: approved
+role: admin
+```
+and that your latest `firestore.rules` is published in the same Firebase project used by `firebase-config.js`.
+Deployment
+Extract the ZIP.
+Keep your real `firebase-config.js`.
+Replace GitHub files.
+Commit to `main`.
+Wait for GitHub Pages deployment.
+Open:
+`https://greatibbe.github.io/hirilandhoo-police-registry/?v=160`
+Press `Ctrl + F5`.
+
+Version 17 - Reliability, Profile, Password and Theme Update
+Role assignment
+Role assignment now:
+processes the Firestore update
+reads the target profile back to verify the new role
+updates the visible User Monitor card immediately
+shows a completion message:
+`Role assignment complete`
+keeps the role manager open briefly so Admin can see the completed state
+Available roles:
+Viewer
+Officer
+Admin
+User profile
+Click the profile/name button in the top-right header.
+Users can now:
+edit display name
+upload/change profile picture
+remove profile picture
+view service number
+change password
+change theme color
+switch Dark/Light mode
+Profile pictures are stored under:
+`profiles/{uid}/...`
+Password change
+The user enters:
+current password
+new password
+confirm new password
+The app re-authenticates the account before changing the password.
+Firebase may reject password changes if the current password is incorrect.
+Theme colors
+Available:
+Dark Blue
+Dark Green
+Teal
+Purple
+Theme selection is saved:
+locally in the browser
+to the user's Firestore profile
+Dark/Light mode remains separate.
+Sign out
+Sign out now asks:
+`Are you sure you want to sign out?`
+After confirmation:
+online status is updated
+Firebase signs out
+the app returns to the login screen
+a completion message is displayed
+Add/Edit reliability
+The record workflow was changed to reduce desktop freezing.
+Improvements:
+prevents double-submit
+shows an on-screen Saving/Updating overlay
+uploads multiple documents in parallel
+writes uploaded URLs in one update
+updates the local list immediately after success
+refreshes dashboard immediately
+shows a clear success popup/toast
+keeps the form open if Firebase returns an error
+shows the actual Firebase error message
+Success messages:
+`Record added successfully`
+`Record updated successfully`
+Edit fix
+Editing now uses a copy of the selected record instead of directly depending on the live Firestore object.
+After update:
+the local record is changed immediately
+the registry rerenders immediately
+Firestore realtime sync can still confirm the server version afterward
+Required Firebase Rules update
+Version 17 changes BOTH:
+`firestore.rules`
+`storage.rules`
+You must publish both in the Firebase project currently used by `firebase-config.js`.
+Firestore
+Users are allowed to update their own:
+name
+profilePhotoURL
+profileUpdatedAt
+themeColor
+presence/activity fields
+They still cannot change their own role or approval status.
+Storage
+Profile picture path:
+`profiles/{uid}/{fileName}`
+Only that signed-in user may write to their own profile folder.
+Deploy
+Extract ZIP.
+Preserve your real `firebase-config.js`.
+Replace GitHub files.
+Commit to `main`.
+Wait for GitHub Pages.
+Publish included `firestore.rules`.
+Publish included `storage.rules`.
+Open:
+`https://greatibbe.github.io/hirilandhoo-police-registry/?v=170`
+Press `Ctrl + F5`.
+Important after Firebase account migration
+If you changed Firebase projects, publish the rules in the NEW project. Updating rules only in the old project has no effect on the live app connected to the new project.

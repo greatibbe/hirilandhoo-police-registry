@@ -24,7 +24,7 @@ service cloud.firestore {
       allow update: if approvedAdmin()
                     || (signedIn() && request.auth.uid == userId
                         && request.resource.data.diff(resource.data).affectedKeys()
-                           .hasOnly(['online','lastSeen','currentModule','activity','sessionStartedAt','entriesTotal','entriesToday','entriesTodayDate']));
+                           .hasOnly(['online','lastSeen','currentModule','activity','sessionStartedAt','entriesTotal','entriesToday','entriesTodayDate','name','profilePhotoURL','profileUpdatedAt','themeColor']));
       allow delete: if approvedAdmin();
     }
 

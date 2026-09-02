@@ -1,9 +1,18 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{registry}/{recordId}/{fileName} {
-      allow read, write: if request.auth != null &&
+    function approvedUser() {
+      return request.auth != null &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == "approved";
+    }
+
+    match /profiles/{userId}/{fileName} {
+      allow read: if approvedUser();
+      allow write: if approvedUser() && request.auth.uid == userId;
+    }
+
+    match /{registry}/{recordId}/{fileName} {
+      allow read, write: if approvedUser();
     }
   }
 }

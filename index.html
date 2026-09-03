@@ -257,6 +257,29 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 .modalbg:not(.hidden),.modalbg:not(.hidden) .modal{pointer-events:auto}
 @media(min-width:901px){.toolbar button,.toolbar select{min-height:42px}.row .actions .btn{padding-left:12px;padding-right:12px}}
 
+
+/* v20 action progress modal */
+.action-progress-box{text-align:center;padding:28px 22px}
+.action-progress-box h2{margin:0 0 8px}
+.action-progress-box p{margin:0;color:var(--muted)}
+.action-spinner{width:42px;height:42px;border:4px solid var(--line);border-top-color:var(--g);border-radius:50%;margin:0 auto 16px;animation:v20spin .8s linear infinite}
+@keyframes v20spin{to{transform:rotate(360deg)}}
+
+
+/* v21 production admin */
+.tabs{display:flex!important;flex-direction:column;gap:7px}
+.tab-row{display:flex;flex-wrap:wrap;gap:7px;width:100%}
+.tab-row .tab{flex:0 0 auto}
+.admin-tab-row{border-top:1px solid var(--line);padding-top:7px}
+.bulk-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bulk-import-help{font-size:10px;color:var(--muted);line-height:1.5}
+.bulk-import-area{width:100%;min-height:220px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre}
+.bulk-template{font-size:9px;overflow:auto;background:var(--bg);border:1px solid var(--line);padding:8px;border-radius:8px}
+@media(max-width:700px){
+ .tab-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tab-row .tab{width:100%}
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>">
 </head>
@@ -297,7 +320,19 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 <section id="app" class="hidden">
 <header class="top"><div class="topin"><div class="brand"><small>TH. HIRILANDHOO · MALDIVES</small><h1>Hirilandhoo Police</h1><p>Unified Registry Management System</p></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button id="themeToggle" class="theme-toggle" type="button">🌙 Dark</button><button id="who">Officer</button><button id="logout">Sign out</button></div></div></header>
 <main class="wrap">
-<nav class="tabs"><button class="tab active" data-view="home">Home</button><button class="tab" data-view="expats">Expats</button><button class="tab" data-view="vehicles">Vehicles</button><button class="tab" data-view="vessels">Vessels</button><button class="tab admin" data-view="users">User Monitor <span id="pendingBadge" class="badgecount hidden">0</span></button><button class="tab admin" data-view="resets">Resets <span id="resetBadge" class="badgecount hidden">0</span></button><button class="tab admin" data-view="audit">Audit Log</button></nav>
+<nav class="tabs">
+ <div class="tab-row">
+  <button class="tab active" data-view="home">Home</button>
+  <button class="tab" data-view="expats">Expats</button>
+  <button class="tab" data-view="vehicles">Vehicles</button>
+  <button class="tab" data-view="vessels">Vessels</button>
+ </div>
+ <div class="tab-row admin-tab-row admin">
+  <button class="tab admin" data-view="users">User Monitor <span id="pendingBadge" class="badgecount hidden">0</span></button>
+  <button class="tab admin" data-view="resets">Resets <span id="resetBadge" class="badgecount hidden">0</span></button>
+  <button class="tab admin" data-view="audit">Audit Log</button>
+ </div>
+</nav>
 <div class="desktop-help">Desktop tip: use “Upload File” on desktop Chrome. “Take Photo / Scan” is mainly for phones/tablets. Wide registry rows can scroll horizontally.</div>
 
 
@@ -416,6 +451,43 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
  </div>
 </div>
 
+
+
+<div id="bulkImportBg" class="modalbg hidden">
+ <div class="modal" style="max-width:850px">
+  <div class="mhead">
+   <div><h2 id="bulkImportTitle">Bulk Add Entries</h2><p>Admin only · paste CSV data</p></div>
+   <button type="button" class="btn" id="closeBulkImport">✕</button>
+  </div>
+  <form id="bulkImportForm" class="form">
+   <input type="hidden" id="bulkImportRegistry">
+   <div class="bulk-import-help">
+    First row must contain field names. Use the field IDs shown in the template. Commas inside a value must be inside double quotes.
+   </div>
+   <div id="bulkTemplate" class="bulk-template"></div>
+   <div class="field span3">
+    <label>CSV entries</label>
+    <textarea id="bulkCsvText" class="bulk-import-area" placeholder="Paste CSV here"></textarea>
+   </div>
+   <div id="bulkImportStatus" class="role-save-status"></div>
+   <div class="mfoot">
+    <button type="button" class="btn" id="cancelBulkImport">Cancel</button>
+    <button type="submit" class="btn primary" id="runBulkImport">Add Entries</button>
+   </div>
+  </form>
+ </div>
+</div>
+
+<div id="actionProgressBg" class="modalbg hidden">
+ <div class="modal" style="max-width:440px">
+  <div class="action-progress-box">
+   <div id="actionSpinner" class="action-spinner"></div>
+   <h2 id="actionProgressTitle">Processing…</h2>
+   <p id="actionProgressText">Please wait.</p>
+  </div>
+ </div>
+</div>
+
 <div id="formBg" class="modalbg hidden"><div class="modal"><div class="mhead"><div><h2 id="formTitle">New record</h2><p id="formSub">Registry record</p></div><button class="btn" id="closeForm">✕</button></div><form id="form" class="form"><div id="dynamicForm"></div><div id="formErr" class="error hidden"></div><div class="mfoot"><button type="button" class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save record</button></div></form></div></div>
 
 <div id="detailBg" class="modalbg hidden"><div class="modal"><div class="mhead"><div><h2>Registry Record</h2><p>Printable record</p></div><button class="btn" id="closeDetail">✕</button></div><div id="detail"></div></div></div>
@@ -433,6 +505,40 @@ if(!window.firebaseConfig||!window.firebaseConfig.apiKey||String(window.firebase
 firebase.initializeApp(window.firebaseConfig);const auth=firebase.auth(),db=firebase.firestore(),storage=firebase.storage();
 let user=null,profile=null,currentRegistry="expats",editing=null,files={},data={expats:[],vehicles:[],vessels:[]};
 
+let appInitializedForUid=null;
+let registryUnsubs=[];
+function showActionProgress(title,text){
+ $("#actionProgressTitle").textContent=title||"Processing…";
+ $("#actionProgressText").textContent=text||"Please wait.";
+ $("#actionSpinner").classList.remove("hidden");
+ $("#actionProgressBg").classList.remove("hidden");
+}
+function setActionProgress(title,text){
+ if(title)$("#actionProgressTitle").textContent=title;
+ if(text)$("#actionProgressText").textContent=text;
+}
+function hideActionProgress(){
+ $("#actionProgressBg").classList.add("hidden");
+}
+async function refreshRegistryNow(reg){
+ const col=db.collection("registries").doc(reg).collection("records").orderBy("createdAt","desc");
+ let snap;
+ try{snap=await col.get({source:"server"})}catch(e){snap=await col.get()}
+ const incoming=snap.docs.map(d=>({id:d.id,...d.data()}));
+ data[reg]=incoming.map(r=>{
+  const opt=optimisticRecordUpdates.get(reg+":"+r.id);
+  if(opt&&opt.expires>Date.now())return {...r,...opt.data};
+  return r;
+ });
+ renderRegistry(reg);
+ renderHome();
+}
+function clearRegistryListeners(){
+ registryUnsubs.forEach(fn=>{try{fn()}catch(e){}});
+ registryUnsubs=[];
+}
+
+
 const schemas={
 expats:{title:"Expat Registry",icon:"👤",primary:["name","nationality","passport"],expiry:["passportExpiry","permitExpiry","visaExpiry"],sections:[
 ["Expat / ބިދޭސީ މީހާ",[["name","Full Name","text",1],["gender","Gender","select","",["","Male","Female","Other"]],["dob","Date of birth","date"],["nationality","Nationality","text",1],["passport","Passport number","text",1],["passportExpiry","Passport expiry","date",1]]],
@@ -442,9 +548,14 @@ expats:{title:"Expat Registry",icon:"👤",primary:["name","nationality","passpo
 ["Residence & Contact",[["address","Hirilandhoo address","textarea"],["phone","Phone","tel"],["email","Email","email"],["emergencyName","Emergency contact","text"],["emergencyPhone","Emergency phone","tel"]]],
 ["Police Registry",[["status","Registry status","select","",["Active","Departed","Suspended"]],["verification","Last verification","date"],["notes","Police remarks","textarea"]]]],docs:[["portrait","Portrait"],["passportDoc","Passport"],["permitDoc","Work permit"],["visaDoc","Visa / immigration"]]},
 vehicles:{title:"Vehicle Registry",icon:"🚗",primary:["registrationNo","ownerName","vehicleType"],expiry:["annualFeeExpiry","insuranceExpiry","roadworthinessExpiry"],sections:[
-["Motor Vehicle Information",[["registrationNo","Registration number","text",1],["zone","ZONE","select","",["A","B","C"]],["vehicleType","Vehicle type","select","",["Motorcycle","Car","Pickup","Van","Truck","Buggy","Other"]],["model","Model","text"],["year","Year","number"],["colour","Colour","text"],["chassisNo","Chassis number","text"],["engineNo","Engine number","text"],["engineCapacity","Engine capacity","text"],["fuelType","Fuel type","select","",["Petrol","Diesel","Electric","Hybrid","Other"]]]],
+["Motor Vehicle Information",[["registrationNo","Registration number","text",1],["zone","ZONE","select","",["A","B","C"]],["vehicleType","Vehicle type","select","",["Motorcycle","Car","Pickup","Van","Truck","Buggy","Other"]],["model","Model","text"],["colour","Colour","text"],["chassisNo","Chassis number","text"],["engineNo","Engine number","text"],["engineCapacity","Engine capacity","text"],["fuelType","Fuel type","select","",["Petrol","Diesel","Electric","Hybrid","Other"]]]],
 ["Owner Information",[["ownerName","Owner full name","text",1],["ownerId","Owner ID card number","text",1],["ownerPhone","Owner phone","tel"],["ownerEmail","Owner email","email"],["ownerAddress","Owner address","textarea"]]],
-["Owner ID Card Scan",[["OWNER_SCAN","Scan owner ID card","scan"]]],["Annual Fee",[["annualFeeNo","Annual fee receipt / reference no.","text"],["annualFeeExpiry","Annual fee expiry date","date"]]],["Insurance",[["insuranceNo","Insurance policy / reference no.","text"],["insuranceExpiry","Insurance expiry date","date"],["insuranceCompany","Insurance company","text"]]],["Roadworthiness Sticker",[["roadworthinessNo","Roadworthiness sticker no.","text"],["roadworthinessExpiry","Roadworthiness expiry date","date"]]],["Police Registry",[["status","Vehicle status","select","",["Active","Transferred","Suspended","Scrapped"]],["notes","Police remarks","textarea"]]]],docs:[["vehiclePhoto","Vehicle photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"],["annualFeeDoc","Annual fee"],["insuranceDoc","Insurance"],["roadworthinessDoc","Roadworthiness"]]},
+["Owner ID Card Scan",[["OWNER_SCAN","Scan owner ID card","scan"]]],
+["Annual Fee",[["annualFeeExpiry","Annual fee expiry date","date"]]],
+["Insurance",[["insuranceExpiry","Insurance expiry date","date"]]],
+["Roadworthiness",[["roadworthinessExpiry","Roadworthiness expiry date","date"]]],
+["Vehicle Check",[["checkedOfficerServiceNo","Checked officer service number","text"],["checkedLocation","Checked location","text"],["checkStatus","Check status","select","",["Checked","Re-check required"]],["checkedDateTime","Checked date & time","text"]]],
+["Police Registry",[["status","Vehicle status","select","",["Active","Transferred","Suspended","Scrapped"]],["notes","Police remarks","textarea"]]]],docs:[["vehiclePhoto","Vehicle photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"],["annualFeeDoc","Annual fee"],["insuranceDoc","Insurance"],["roadworthinessDoc","Roadworthiness"]]},
 vessels:{title:"Vessel Registry",icon:"🚤",primary:["registrationNo","vesselName","ownerName"],expiry:[],sections:[
 ["Vessel Information",[["registrationNo","Vessel registration number","text",1],["vesselName","Vessel name","text",1],["vesselType","Vessel type","select","",["Fishing vessel","Speedboat","Dhoani","Cargo","Passenger","Recreational","Other"]],["homePort","Home port","text"],["length","Length","text"]]],
 ["Owner Information",[["ownerName","Full name","text",1],["ownerId","ID card number","text",1],["ownerPhone","Phone","tel"],["ownerEmail","Email","email"],["ownerAddress","Address","textarea"]]],["Owner ID Card Scan",[["OWNER_SCAN","Scan ID card","scan"]]],["Police Registry",[["captainName","Captain / master","text"],["captainPhone","Captain phone","tel"],["status","Vessel status","select","",["Active","Transferred","Suspended","Decommissioned"]],["notes","Police remarks","textarea"]]]],docs:[["vesselPhoto","Vessel photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"]]}}
@@ -484,7 +595,10 @@ async function bulkDeleteRecords(reg,ids){
  const unique=[...new Set(ids)].filter(Boolean);
  if(!unique.length){alert("Select at least one record.");return}
  if(!confirm("Permanently delete "+unique.length+" selected records from "+schemas[reg].title+"? This cannot be undone."))return;
- const records=data[reg].filter(r=>unique.includes(r.id));
+
+ const records=(data[reg]||[]).filter(r=>unique.includes(r.id));
+ showActionProgress("Deleting Records","Deleting "+unique.length+" selected records…");
+
  try{
   for(let i=0;i<unique.length;i+=400){
    const batch=db.batch();
@@ -493,16 +607,33 @@ async function bulkDeleteRecords(reg,ids){
    });
    await batch.commit();
   }
-  for(const r of records){
+
+  // Remove from visible list immediately.
+  data[reg]=(data[reg]||[]).filter(r=>!unique.includes(r.id));
+  renderRegistry(reg);
+  renderHome();
+
+  setActionProgress("Finishing Delete","Cleaning up attached files…");
+  await Promise.all(records.map(async r=>{
    await deleteStorageFolder(reg,r.id);
    await audit("BULK_DELETE",reg,r.id,recordName(reg,r));
-  }
+  }));
+
+  // Confirm from server. Empty means empty: demo data will NOT be recreated.
+  await refreshRegistryNow(reg);
+
+  setActionProgress("Delete Complete",unique.length+" records deleted.");
+  toast(unique.length+" records deleted successfully. Registry refreshed.","success",3500);
+  setTimeout(()=>hideActionProgress(),600);
+
  }catch(e){
-  console.error(e);
-  alert("Bulk delete failed. Check Firebase permissions and connection.");
+  console.error("BULK DELETE ERROR",e);
+  hideActionProgress();
+  const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
+  alert("Bulk delete failed.\n\n"+detail);
+  toast("Bulk delete failed","error",4500);
  }
 }
-
 function nameToInitials(name){const w=name.trim().split(/\s+/).filter(Boolean);if(!w.length)return "";let i=w.map(x=>x[0]).join("").toLowerCase();if(i.length<2)i=(w[0].slice(0,2)||w[0]).toLowerCase();return i}
 function makeUsername(name,service){const i=nameToInitials(name),n=service.trim().replace(/[^0-9a-zA-Z]/g,"");return i&&n?(i+"_"+n).toLowerCase():""}
 function friendlyAuthError(e){const m={"auth/email-already-in-use":"That email address is already registered.","auth/invalid-email":"That email address is invalid.","auth/weak-password":"Password must be at least 6 characters.","auth/wrong-password":"Incorrect username or password.","auth/user-not-found":"No account found with that username.","auth/invalid-credential":"Incorrect username or password.","auth/too-many-requests":"Too many attempts. Please try again later."};return m[e?.code]||e?.message||"Authentication failed."}
@@ -535,17 +666,164 @@ function applyDesktopInputHints(){
 }
 
 const optimisticRecordUpdates=new Map();
-function openForm(reg,rec){if(!canWrite()){toast("You do not have permission to edit records.","error");return}updatePresence(schemas[reg]?.title||reg,rec?"Editing record":"Entering data");currentRegistry=reg;editing=rec?{...rec}:null;$("#formTitle").textContent=(rec?"Edit ":"New ")+schemas[reg].title.replace(" Registry","");$("#formSub").textContent=schemas[reg].title;$("#dynamicForm").innerHTML=formHTML(reg);schemas[reg].sections.flatMap(x=>x[1]).forEach(f=>{const id=f[0];if(id==="OWNER_SCAN"||id==="EXPAT_SCAN")return;const el=$("#"+id);if(el)el.value=rec?.[id]??(id==="status"?"Active":"")});wireDocs(reg);wireOCR();wireExpatOCR();applyDesktopInputHints();$("#formBg").classList.remove("hidden")}
+function openForm(reg,rec){if(!canWrite()){toast("You do not have permission to edit records.","error");return}updatePresence(schemas[reg]?.title||reg,rec?"Editing record":"Entering data");currentRegistry=reg;editing=rec?{...rec}:null;$("#formTitle").textContent=(rec?"Edit ":"New ")+schemas[reg].title.replace(" Registry","");$("#formSub").textContent=schemas[reg].title;$("#dynamicForm").innerHTML=formHTML(reg);schemas[reg].sections.flatMap(x=>x[1]).forEach(f=>{const id=f[0];if(id==="OWNER_SCAN"||id==="EXPAT_SCAN")return;const el=$("#"+id);if(el)el.value=rec?.[id]??(id==="status"?"Active":"")});wireDocs(reg);wireOCR();wireExpatOCR();applyDesktopInputHints();
+if(reg==="vehicles"){
+ const officer=$("#checkedOfficerServiceNo");
+ const checkedTime=$("#checkedDateTime");
+ if(officer){
+  if(!rec?.checkedOfficerServiceNo)officer.value=profile?.service_number||"";
+  officer.readOnly=true;
+  officer.title="Automatically taken from the signed-in officer profile";
+ }
+ if(checkedTime){
+  if(!rec?.checkedDateTime)checkedTime.value="Automatically recorded when saved";
+  checkedTime.readOnly=true;
+  checkedTime.title="Automatically recorded when the vehicle check is saved";
+ }
+}
+$("#formBg").classList.remove("hidden")}
 function closeForm(){if($("#form")?.classList.contains("busy"))return;$("#formBg").classList.add("hidden");editing=null;files={}}
 function recordName(reg,r){return r[schemas[reg].primary[0]]||"Record"}
+
+function expiryFieldLabel(key){
+ const labels={
+  annualFeeExpiry:"Annual Fee",
+  insuranceExpiry:"Insurance",
+  roadworthinessExpiry:"Roadworthiness",
+  passportExpiry:"Passport",
+  permitExpiry:"Work Permit",
+  visaExpiry:"Visa"
+ };
+ return labels[key]||key;
+}
+
 function expiryMin(reg,r){const vals=schemas[reg].expiry.map(k=>days(r[k])).filter(x=>x!==null);return vals.length?Math.min(...vals):99999}
+
+let demoCleanupDone=false;
+async function removeStoredDemoEntries(){
+ if(demoCleanupDone||profile?.role!=="admin")return;
+ demoCleanupDone=true;
+ let removed=0;
+ try{
+  for(const reg of ["expats","vehicles","vessels"]){
+   const col=db.collection("registries").doc(reg).collection("records");
+   const snap=await col.where("demo","==",true).get();
+   if(snap.empty)continue;
+   for(let i=0;i<snap.docs.length;i+=400){
+    const batch=db.batch();
+    snap.docs.slice(i,i+400).forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+   }
+   removed+=snap.size;
+  }
+  if(removed){
+   toast(removed+" demo entries removed permanently","success",4000);
+   for(const reg of ["expats","vehicles","vessels"])await refreshRegistryNow(reg);
+  }
+ }catch(e){
+  console.error("DEMO CLEANUP ERROR",e);
+  toast("Could not remove stored demo entries: "+(e?.code||e?.message||e),"error",5000);
+ }
+}
+
+function csvSplitLine(line){
+ const out=[];let cur="",quoted=false;
+ for(let i=0;i<line.length;i++){
+  const ch=line[i];
+  if(ch==='"'){
+   if(quoted&&line[i+1]==='"'){cur+='"';i++}
+   else quoted=!quoted;
+  }else if(ch===","&&!quoted){out.push(cur.trim());cur=""}
+  else cur+=ch;
+ }
+ out.push(cur.trim());
+ return out;
+}
+function bulkFieldIds(reg){
+ return schemas[reg].sections.flatMap(x=>x[1]).map(f=>f[0]).filter(id=>
+  id!=="OWNER_SCAN"&&id!=="EXPAT_SCAN"&&
+  !(reg==="vehicles"&&(id==="checkedOfficerServiceNo"||id==="checkedDateTime"))
+ );
+}
+function openBulkImport(reg){
+ if(profile?.role!=="admin")return;
+ const ids=bulkFieldIds(reg);
+ $("#bulkImportRegistry").value=reg;
+ $("#bulkImportTitle").textContent="Bulk Add "+schemas[reg].title.replace(" Registry","")+" Entries";
+ $("#bulkTemplate").textContent="Header template:\n"+ids.join(",");
+ $("#bulkCsvText").value="";
+ $("#bulkImportStatus").textContent="";
+ $("#bulkImportBg").classList.remove("hidden");
+}
+function closeBulkImport(){
+ $("#bulkImportBg").classList.add("hidden");
+ $("#bulkCsvText").value="";
+}
+async function runBulkImport(ev){
+ ev.preventDefault();
+ const reg=$("#bulkImportRegistry").value;
+ const raw=$("#bulkCsvText").value.trim();
+ const status=$("#bulkImportStatus");
+ const btn=$("#runBulkImport");
+ if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
+ if(!raw){status.textContent="Paste CSV entries first.";return}
+
+ const lines=raw.split(/\r?\n/).filter(x=>x.trim());
+ if(lines.length<2){status.textContent="CSV must have a header row and at least one entry.";return}
+ const headers=csvSplitLine(lines[0]);
+ const allowed=new Set(bulkFieldIds(reg));
+ const invalid=headers.filter(h=>!allowed.has(h));
+ if(invalid.length){status.textContent="Unknown field(s): "+invalid.join(", ");return}
+
+ const rows=lines.slice(1).map(line=>{
+  const vals=csvSplitLine(line),obj={};
+  headers.forEach((h,i)=>obj[h]=(vals[i]??"").trim());
+  return obj;
+ });
+ if(!rows.length)return;
+
+ btn.disabled=true;
+ showActionProgress("Adding Entries","Adding "+rows.length+" "+schemas[reg].title.toLowerCase()+" entries…");
+ try{
+  for(let i=0;i<rows.length;i+=400){
+   const batch=db.batch();
+   rows.slice(i,i+400).forEach(obj=>{
+    const ref=db.collection("registries").doc(reg).collection("records").doc();
+    batch.set(ref,{
+     ...obj,
+     createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+     updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+     createdBy:user.uid,
+     updatedBy:user.uid,
+     createdDate:new Date().toISOString().slice(0,10)
+    });
+   });
+   await batch.commit();
+  }
+  await audit("BULK_CREATE",reg,"",rows.length+" entries");
+  await refreshRegistryNow(reg);
+  closeBulkImport();
+  setActionProgress("Bulk Entry Complete",rows.length+" entries added successfully.");
+  toast(rows.length+" entries added successfully","success",3500);
+  setTimeout(()=>hideActionProgress(),650);
+ }catch(e){
+  console.error("BULK IMPORT ERROR",e);
+  hideActionProgress();
+  const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
+  status.textContent="Failed: "+detail;
+  alert("Bulk entry failed.\n\n"+detail);
+ }finally{
+  btn.disabled=false;
+ }
+}
+
 function renderRegistry(reg){
  const host=$("#"+reg),s=schemas[reg],rows=data[reg],isAdmin=profile?.role==="admin",writeAllowed=canWrite();
  host.innerHTML=
  '<div class="hero"><h2>'+s.icon+' '+s.title+'</h2><p>Hirilandhoo Police official registry</p></div>'+
  '<div class="cards"><div class="metric"><b>'+rows.length+'</b><span>Total records</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>30).length+'</b><span>Valid</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length+'</b><span>Expiring ≤30d</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)<0).length+'</b><span>Expired</span></div><div class="metric"><b>'+rows.filter(r=>r.createdDate===new Date().toISOString().slice(0,10)).length+'</b><span>Added today</span></div></div>'+
  (writeAllowed?'':'<div class="readonly-note">Viewer access: read-only. Add, edit and delete actions are disabled.</div>')+'<div class="toolbar"><div class="search"><input id="search_'+reg+'" placeholder="Search '+s.title.toLowerCase()+'…"></div><select id="filter_'+reg+'"><option value="all">All</option><option value="valid">Valid</option><option value="soon">Expiring</option><option value="expired">Expired</option></select><button class="btn" id="csv_'+reg+'">CSV</button>'+(writeAllowed?'<button class="btn primary" id="new_'+reg+'">＋ New</button>':'')+'</div>'+
- (isAdmin?'<div class="bulkbar"><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete selected</button></div>':'')+
+ (isAdmin?'<div class="bulkbar bulk-tools"><button class="btn small" id="bulkAdd_'+reg+'">＋ Bulk Add Entries</button><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete Selected</button></div>':'')+
  '<div class="panel"><div class="listhead">'+s.title+'</div><div id="list_'+reg+'"></div></div>';
 
  const selected=new Set();
@@ -589,6 +867,7 @@ function renderRegistry(reg){
  $("#csv_"+reg).onclick=()=>exportCSV(reg);
 
  if(isAdmin){
+  $("#bulkAdd_"+reg).onclick=()=>openBulkImport(reg);
   $("#selectAll_"+reg).onchange=e=>{
    const checked=e.target.checked;
    $$("#list_"+reg+" input[data-select-id]").forEach(cb=>{cb.checked=checked;checked?selected.add(cb.dataset.selectId):selected.delete(cb.dataset.selectId)});
@@ -604,34 +883,26 @@ function renderHome(){
  const all=[...data.expats.map(r=>["expats",r]),...data.vehicles.map(r=>["vehicles",r]),...data.vessels.map(r=>["vessels",r])];
  $("#homeSoon").textContent=all.filter(([reg,r])=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length;$("#homeExpired").textContent=all.filter(([reg,r])=>expiryMin(reg,r)<0).length;
  const alerts=all.filter(([reg,r])=>expiryMin(reg,r)<=30).sort((a,b)=>expiryMin(a[0],a[1])-expiryMin(b[0],b[1])).slice(0,12);
- $("#homeAlerts").innerHTML=alerts.length?alerts.map(([reg,r])=>'<div class="alertitem"><b>'+schemas[reg].title+': '+esc(recordName(reg,r))+'</b><div class="sub">'+schemas[reg].expiry.map(k=>r[k]?esc(k)+': '+esc(r[k])+' '+badge(r[k]):"").filter(Boolean).join(" &nbsp; ")+'</div></div>').join(""):'<div class="empty">No document expiry alerts.</div>'
+ $("#homeAlerts").innerHTML=alerts.length?alerts.map(([reg,r])=>'<div class="alertitem"><b>'+schemas[reg].title+': '+esc(recordName(reg,r))+'</b><div class="sub">'+schemas[reg].expiry.map(k=>r[k]?esc(expiryFieldLabel(k))+': '+esc(r[k])+' '+badge(r[k]):"").filter(Boolean).join(" &nbsp; ")+'</div></div>').join(""):'<div class="empty">No document expiry alerts.</div>'
 }
 function view(reg,r){const pairs=Object.entries(r).filter(([k,v])=>!["id","createdAt","updatedAt","createdBy","updatedBy","createdDate"].includes(k)&&!k.startsWith("file_")&&typeof v!=="object");$("#detail").innerHTML='<div class="detail"><h2>'+schemas[reg].icon+' '+esc(recordName(reg,r))+'</h2><div class="actions" style="margin:10px 0"><button id="printRec" class="btn small">Print</button>'+(canWrite()?'<button id="editRec" class="btn small">Edit</button><button id="deleteRec" class="btn small deletebtn">Delete</button>':'')+'</div><div class="detailgrid">'+pairs.map(([k,v])=>'<div class="kv"><small>'+esc(k)+'</small><b>'+esc(v||"—")+'</b></div>').join("")+'</div></div>';$("#detailBg").classList.remove("hidden");$("#printRec").onclick=()=>window.print();if($("#editRec"))$("#editRec").onclick=()=>{$("#detailBg").classList.add("hidden");openForm(reg,r)};if($("#deleteRec"))$("#deleteRec").onclick=async()=>{$("#detailBg").classList.add("hidden");await deleteOneRecord(reg,r)}}
 function exportCSV(reg){const rows=data[reg];const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>!["id","createdAt","updatedAt"].includes(k));const out=[keys.join(",")].concat(rows.map(r=>keys.map(k=>'"'+String(r[k]??"").replaceAll('"','""')+'"').join(","))).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([out],{type:"text/csv"}));a.download="hirilandhoo-"+reg+"-registry.csv";a.click()}
 async function save(ev){
  ev.preventDefault();
-
- const form=$("#form");
- const saveBtn=$("#save");
- const modal=form.closest(".modal");
-
+ const form=$("#form"),saveBtn=$("#save");
  if(form.classList.contains("busy"))return;
 
  form.classList.add("busy");
  saveBtn.disabled=true;
- saveBtn.textContent=editing?"Updating…":"Saving…";
  $("#formErr").classList.add("hidden");
 
- const mask=document.createElement("div");
- mask.className="saving-mask";
- mask.id="savingMask";
- mask.textContent=editing?"Updating record…":"Saving record…";
- modal.appendChild(mask);
+ const isEdit=!!editing;
+ const registryAtSave=currentRegistry;
+ const editingAtSave=editing?{...editing}:null;
+ showActionProgress(isEdit?"Updating Record":"Saving Record",isEdit?"Saving your changes to Firestore…":"Creating the new registry entry…");
 
  try{
-  const s=schemas[currentRegistry];
-  const obj={};
-
+  const s=schemas[registryAtSave],obj={};
   s.sections.flatMap(x=>x[1]).forEach(f=>{
    if(f[0]==="OWNER_SCAN"||f[0]==="EXPAT_SCAN")return;
    const el=$("#"+f[0]);
@@ -641,85 +912,34 @@ async function save(ev){
   obj.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
   obj.updatedBy=user.uid;
 
-  const isEdit=!!editing;
-  const registryAtSave=currentRegistry;
+  if(registryAtSave==="vehicles"){
+   obj.checkedOfficerServiceNo=profile?.service_number||obj.checkedOfficerServiceNo||"";
+   obj.checkedDateTime=new Date().toLocaleString("en-GB",{
+    year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",second:"2-digit",
+    hour12:false
+   });
+   obj.checkedAt=firebase.firestore.FieldValue.serverTimestamp();
+   if(!obj.checkStatus)obj.checkStatus="Checked";
+  }
+
   let ref,id;
 
   if(isEdit){
-   id=editing.id;
+   id=editingAtSave.id;
    ref=db.collection("registries").doc(registryAtSave).collection("records").doc(id);
-
-   // Save the main edit to Firestore first.
    await ref.update(obj);
-
-   // Update the local entry immediately after Firestore confirms.
-   const list=data[registryAtSave]||[];
-   const pos=list.findIndex(x=>x.id===id);
-   const merged={...(pos>=0?list[pos]:editing),...obj,id};
-
-   if(pos>=0)list[pos]=merged;
-   else list.unshift(merged);
-
-   // Mark this local update so an older realtime snapshot cannot immediately
-   // repaint the old record over the newly edited values.
-   optimisticRecordUpdates.set(registryAtSave+":"+id,{
-    data:merged,
-    expires:Date.now()+5000
-   });
-
-   // Close the edit window immediately once the record update succeeds.
-   $("#formBg").classList.add("hidden");
-   editing=null;
-
-   // Redraw immediately before any document uploads finish.
-   renderRegistry(registryAtSave);
-   renderHome();
-
-   toast("Record updated successfully","success",3000);
-
-   // Upload any new/replacement files after the edit window has closed.
-   const uploadEntries=Object.entries(files);
-   files={};
-
-   if(uploadEntries.length){
-    Promise.all(uploadEntries.map(async([k,file])=>{
-     const sr=storage.ref(registryAtSave+"/"+id+"/"+k+"_"+Date.now()+"_"+Math.random().toString(36).slice(2,7));
-     await sr.put(file);
-     return [k,await sr.getDownloadURL()];
-    })).then(async uploaded=>{
-     const fileUpdates={};
-     uploaded.forEach(([k,url])=>fileUpdates["file_"+k]=url);
-     if(Object.keys(fileUpdates).length){
-      await ref.update(fileUpdates);
-
-      const current=data[registryAtSave]?.find(x=>x.id===id);
-      if(current){
-       Object.assign(current,fileUpdates);
-       renderRegistry(registryAtSave);
-      }
-     }
-    }).catch(e=>{
-     console.error("EDIT DOCUMENT UPLOAD ERROR",e);
-     toast("Record updated, but one or more document uploads failed","error",4500);
-    });
-   }
-
-   await audit("UPDATE",registryAtSave,id,recordName(registryAtSave,merged));
-   updatePresence(schemas[registryAtSave]?.title||registryAtSave,"Viewing");
-   return;
+  }else{
+   obj.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+   obj.createdBy=user.uid;
+   obj.createdDate=new Date().toISOString().slice(0,10);
+   ref=await db.collection("registries").doc(registryAtSave).collection("records").add(obj);
+   id=ref.id;
   }
-
-  // New record path.
-  obj.createdAt=firebase.firestore.FieldValue.serverTimestamp();
-  obj.createdBy=user.uid;
-  obj.createdDate=new Date().toISOString().slice(0,10);
-
-  ref=await db.collection("registries").doc(registryAtSave).collection("records").add(obj);
-  id=ref.id;
 
   const uploadEntries=Object.entries(files);
   if(uploadEntries.length){
-   mask.textContent="Uploading documents…";
+   setActionProgress(isEdit?"Updating Record":"Saving Record","Uploading photos and documents…");
    const fileUpdates={};
    await Promise.all(uploadEntries.map(async([k,file])=>{
     const sr=storage.ref(registryAtSave+"/"+id+"/"+k+"_"+Date.now()+"_"+Math.random().toString(36).slice(2,7));
@@ -729,38 +949,62 @@ async function save(ev){
    if(Object.keys(fileUpdates).length)await ref.update(fileUpdates);
   }
 
-  const newRecord={...obj,id};
-  data[registryAtSave].unshift(newRecord);
+  setActionProgress("Confirming Save","Refreshing the registry with the saved record…");
 
-  await audit("CREATE",registryAtSave,id,recordName(registryAtSave,newRecord));
-  await incrementEntryStats();
+  // Optimistic update first.
+  const list=data[registryAtSave]||[];
+  if(isEdit){
+   const pos=list.findIndex(x=>x.id===id);
+   const merged={...(pos>=0?list[pos]:editingAtSave),...obj,id};
+   if(pos>=0)list[pos]=merged; else list.unshift(merged);
+   optimisticRecordUpdates.set(registryAtSave+":"+id,{data:merged,expires:Date.now()+5000});
+  }else{
+   list.unshift({...obj,id});
+  }
+  renderRegistry(registryAtSave);
+  renderHome();
 
+  // Return to the registry page immediately with the edited row already updated.
   $("#formBg").classList.add("hidden");
   editing=null;
   files={};
+  switchView(registryAtSave);
 
-  renderRegistry(registryAtSave);
-  renderHome();
+  // Then force a server refresh so the visible list is the confirmed saved state.
+  await refreshRegistryNow(registryAtSave);
+
+  await audit(isEdit?"UPDATE":"CREATE",registryAtSave,id,recordName(registryAtSave,isEdit?{...editingAtSave,...obj}:{...obj,id}));
+  if(!isEdit)await incrementEntryStats();
+
+  setActionProgress(isEdit?"Update Complete":"Save Complete",isEdit?"Record updated successfully.":"Record added successfully.");
+  toast(isEdit?"Record updated successfully":"Record added successfully","success",3500);
+
+  setTimeout(()=>hideActionProgress(),600);
   updatePresence(schemas[registryAtSave]?.title||registryAtSave,"Viewing");
-  toast("Record added successfully","success",3000);
 
  }catch(e){
   console.error("RECORD SAVE ERROR",e);
+  hideActionProgress();
   const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
   $("#formErr").textContent="Unable to save: "+detail;
   $("#formErr").classList.remove("hidden");
-  toast(editing?"Record update failed":"Record save failed","error",4000);
+  alert((isEdit?"Update failed":"Save failed")+".\n\n"+detail);
+  toast(isEdit?"Record update failed":"Record save failed","error",4500);
  }finally{
-  document.querySelector("#savingMask")?.remove();
   form.classList.remove("busy");
   saveBtn.disabled=false;
   saveBtn.textContent="Save record";
  }
 }
-async function seedDemoData(){if(profile?.role!=="admin")return;const iso=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)},sets={expats:[
-{name:"Ahmed Rahman",nationality:"Bangladeshi",passport:"BA1234567",passportExpiry:iso(420),permit:"WP-1001",permitExpiry:iso(180),visaExpiry:iso(120),occupation:"Construction Worker",employer:"Demo Construction",picName:"Ibrahim Shareef",address:"Hirilandhoo",status:"Active"},{name:"Mohamed Hasan",nationality:"Bangladeshi",passport:"BB2345678",passportExpiry:iso(260),permit:"WP-1002",permitExpiry:iso(28),visaExpiry:iso(60),occupation:"Carpenter",employer:"Demo Works",picName:"Ali Rasheed",address:"Hirilandhoo",status:"Active"},{name:"Ravi Kumar",nationality:"Indian",passport:"C3456789",passportExpiry:iso(500),permit:"WP-1003",permitExpiry:iso(220),visaExpiry:iso(200),occupation:"Electrician",employer:"Demo Services",picName:"Hassan Najeeb",address:"Hirilandhoo",status:"Active"},{name:"Suresh Perera",nationality:"Sri Lankan",passport:"N4567890",passportExpiry:iso(150),permit:"WP-1004",permitExpiry:iso(90),visaExpiry:iso(20),occupation:"Mechanic",employer:"Demo Garage",picName:"Mohamed Saeed",address:"Hirilandhoo",status:"Active"},{name:"Abdul Karim",nationality:"Bangladeshi",passport:"A5678901",passportExpiry:iso(700),permit:"WP-1005",permitExpiry:iso(365),visaExpiry:iso(300),occupation:"Shop Assistant",employer:"Demo Store",picName:"Ahmed Sameer",address:"Hirilandhoo",status:"Active"}],vehicles:[],vessels:[
-{registrationNo:"V-DEMO-001",vesselName:"Sea Star",vesselType:"Fishing vessel",homePort:"Hirilandhoo",length:"45 ft",ownerName:"Ahmed Rasheed",ownerId:"A700001",status:"Active"},{registrationNo:"V-DEMO-002",vesselName:"Blue Wave",vesselType:"Speedboat",homePort:"Hirilandhoo",length:"30 ft",ownerName:"Mohamed Nazeer",ownerId:"A700002",status:"Active"},{registrationNo:"V-DEMO-003",vesselName:"Island Queen",vesselType:"Dhoani",homePort:"Hirilandhoo",length:"55 ft",ownerName:"Ibrahim Shareef",ownerId:"A700003",status:"Active"},{registrationNo:"V-DEMO-004",vesselName:"Hirilandhoo Express",vesselType:"Passenger",homePort:"Hirilandhoo",length:"38 ft",ownerName:"Abdulla Riyaz",ownerId:"A700004",status:"Active"},{registrationNo:"V-DEMO-005",vesselName:"Ocean Pearl",vesselType:"Cargo",homePort:"Hirilandhoo",length:"62 ft",ownerName:"Hussain Najeeb",ownerId:"A700005",status:"Active"}]};const types=["Motorcycle","Car","Pickup","Van","Truck","Buggy","Other"];sets.vehicles=types.map((t,i)=>({registrationNo:"DEMO-"+String(i+1).padStart(3,"0"),zone:["A","B","C"][i%3],vehicleType:t,model:["Wave 125","Fit","Hilux","Hiace","Canter","Island Buggy","Utility"][i],year:2020+i%5,colour:["Black","White","Silver","Blue","Red","Green","Grey"][i],chassisNo:"CH-DEMO-"+(1001+i),engineNo:"EN-DEMO-"+(2001+i),fuelType:t==="Buggy"?"Electric":"Petrol",ownerName:["Ahmed Ali","Hassan Mohamed","Ibrahim Rasheed","Ali Nazeer","Mohamed Waheed","Hussain Sameer","Abdulla Riyaz"][i],ownerId:"A"+(600001+i),ownerAddress:"Hirilandhoo",annualFeeNo:"AF-"+(3001+i),annualFeeExpiry:iso(40+i*10),insuranceNo:"INS-"+(4001+i),insuranceExpiry:iso(i===2?20:100+i*10),roadworthinessNo:"RW-"+(5001+i),roadworthinessExpiry:iso(i===5?15:140+i*10),status:"Active"}));for(const reg of Object.keys(sets)){const col=db.collection("registries").doc(reg).collection("records"),snap=await col.limit(1).get();if(snap.empty){const batch=db.batch();sets[reg].forEach(o=>{const ref=col.doc();batch.set(ref,{...o,demo:true,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:user.uid,createdDate:new Date().toISOString().slice(0,10),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:user.uid})});await batch.commit()}}}
-function loadAll(){["expats","vehicles","vessels"].forEach(reg=>db.collection("registries").doc(reg).collection("records").orderBy("createdAt","desc").onSnapshot(s=>{{
+async function seedDemoData(){
+ // Production build: automatic demo seeding is permanently disabled.
+ // Deleting all records will leave the registry empty.
+ return;
+}
+function loadAll(){
+ clearRegistryListeners();
+ ["expats","vehicles","vessels"].forEach(reg=>{
+  const unsub=db.collection("registries").doc(reg).collection("records").orderBy("createdAt","desc").onSnapshot(s=>{
    const incoming=s.docs.map(d=>({id:d.id,...d.data()}));
    data[reg]=incoming.map(r=>{
     const key=reg+":"+r.id;
@@ -771,7 +1015,13 @@ function loadAll(){["expats","vehicles","vessels"].forEach(reg=>db.collection("r
    });
    renderRegistry(reg);
    renderHome();
-  }}))}
+  },e=>{
+   console.error("Registry listener error",reg,e);
+   toast("Could not refresh "+reg+" records","error");
+  });
+  registryUnsubs.push(unsub);
+ });
+}
 function loadAudit(){if(profile?.role!=="admin")return;db.collection("auditLogs").orderBy("timestamp","desc").limit(150).onSnapshot(s=>{$("#auditList").innerHTML=s.docs.map(d=>{const x=d.data(),t=x.timestamp?.toDate?.()?.toLocaleString()||"";return '<div class="auditrow"><b>'+esc(x.action)+'</b> · '+esc(x.registry)+' · '+esc(x.recordName)+'<br>'+esc(x.userEmail)+' · '+t+'</div>'}).join("")||'<div class="empty">No audit records.</div>'})}
 
 
@@ -918,12 +1168,27 @@ function switchView(v){applyModuleTheme(v);updatePresence(v==="home"?"Home":sche
 $$(".tab").forEach(t=>t.onclick=()=>switchView(t.dataset.view));$$("[data-open]").forEach(b=>b.onclick=()=>switchView(b.dataset.open));$("#closeForm").onclick=closeForm;$("#cancel").onclick=closeForm;$("#closeDetail").onclick=()=>$("#detailBg").classList.add("hidden");$("#form").onsubmit=save;
 $("#logout").onclick=async()=>{
  if(!confirm("Are you sure you want to sign out?"))return;
- try{
-  await db.collection("users").doc(user.uid).update({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp(),activity:"Signed out"});
- }catch(e){}
- await auth.signOut();
+
+ // Move to sign-in page immediately. Do not make the user wait for network calls.
+ clearRegistryListeners();
  showAuthState("login");
- toast("Signed out successfully","success");
+ $("#loginUser").focus();
+
+ const signingOutUser=user;
+ try{
+  if(signingOutUser){
+   await db.collection("users").doc(signingOutUser.uid).update({
+    online:false,
+    lastSeen:firebase.firestore.FieldValue.serverTimestamp(),
+    activity:"Signed out"
+   });
+  }
+ }catch(e){console.warn("Presence sign-out update skipped",e)}
+
+ try{await auth.signOut()}catch(e){console.warn("Firebase sign-out error",e)}
+ profile=null;
+ user=null;
+ appInitializedForUid=null;
 };
 
 $("#who").onclick=openProfile;
@@ -948,6 +1213,11 @@ $$('input[name="themeAccent"]').forEach(r=>r.onchange=async()=>{
   toast("Theme color changed","success");
  }catch(e){toast("Theme changed locally; profile sync failed","info")}
 });
+
+
+$("#bulkImportForm").onsubmit=runBulkImport;
+$("#closeBulkImport").onclick=closeBulkImport;
+$("#cancelBulkImport").onclick=closeBulkImport;
 
 $("#roleManagerForm").onsubmit=saveManagedRole;
 $("#closeRoleManager").onclick=closeRoleManager;
@@ -1013,71 +1283,86 @@ function closeRoleManager(){
 
 let roleAssignmentBusy=false;
 async function saveManagedRole(ev){
- if(roleAssignmentBusy)return;
  ev.preventDefault();
+ if(roleAssignmentBusy)return;
+
  const uid=$("#roleManagerUid").value;
  const selected=$('input[name="managedRole"]:checked');
  const newRole=selected?.value;
  const status=$("#roleSaveStatus");
  const saveBtn=$("#saveManagedRole");
 
- if(!uid||!newRole){
-  status.textContent="Select a role first.";
-  return;
- }
+ if(!uid||!newRole){status.textContent="Select a role first.";return}
  if(profile?.status!=="approved"||profile?.role!=="admin"){
-  status.textContent="Current account is not recognized as an approved Admin.";
+  status.textContent="Your account is not recognized as an approved Admin.";
+  toast("Role assignment blocked: Admin permission not detected","error",4500);
   return;
  }
- if(uid===user.uid){
-  status.textContent="You cannot change your own Admin role.";
-  return;
- }
+ if(uid===user.uid){status.textContent="You cannot change your own role here.";return}
 
  const target=latestAdminUsers.find(x=>x.id===uid)||roleManagerTarget;
- if(!confirm("Assign "+newRole+" role to "+(target?.name||target?.username||"this user")+"?"))return;
+ const label=target?.name||target?.username||uid;
+ if(!confirm("Assign "+newRole+" role to "+label+"?"))return;
 
  roleAssignmentBusy=true;
  saveBtn.disabled=true;
- status.textContent="Saving role…";
+ status.textContent="Assigning role…";
+ showActionProgress("Assigning User Role","Updating "+label+" to "+newRole+"…");
 
  try{
-  const ref=db.collection("users").doc(uid);
-  await ref.update({
-   role:newRole,
-   roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-   roleUpdatedBy:user.uid,
-   roleUpdatedByName:profile?.name||profile?.username||user.email||"Admin"
+  await db.runTransaction(async tx=>{
+   const adminRef=db.collection("users").doc(user.uid);
+   const targetRef=db.collection("users").doc(uid);
+   const adminSnap=await tx.get(adminRef);
+   const targetSnap=await tx.get(targetRef);
+
+   if(!adminSnap.exists)throw new Error("Admin profile document not found.");
+   const adminData=adminSnap.data();
+   if(adminData.status!=="approved"||adminData.role!=="admin")throw new Error("Current account is not an approved Admin.");
+   if(!targetSnap.exists)throw new Error("Target user profile document not found.");
+
+   tx.update(targetRef,{
+    role:newRole,
+    roleUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    roleUpdatedBy:user.uid,
+    roleUpdatedByName:profile?.name||profile?.username||user.email||"Admin"
+   });
   });
 
-  const verifySnap=await ref.get();
-  const savedRole=verifySnap.data()?.role;
-  if(savedRole!==newRole){
-   throw new Error("Role verification failed. Firestore returned: "+savedRole);
-  }
+  setActionProgress("Verifying Role","Confirming the saved account permissions…");
+  const targetRef=db.collection("users").doc(uid);
+  let verify;
+  try{verify=await targetRef.get({source:"server"})}catch(e){verify=await targetRef.get()}
+  const savedRole=verify.data()?.role;
+  if(savedRole!==newRole)throw new Error("Role was not saved. Firestore currently shows: "+(savedRole||"none"));
 
-  await audit("ROLE_CHANGE","users",uid,target?.name||target?.username||uid,{details:"Assigned role: "+newRole});
-  if(target)target.role=newRole;
+  await audit("ROLE_CHANGE","users",uid,label);
+  const targetIndex=latestAdminUsers.findIndex(x=>x.id===uid);
+  if(targetIndex>=0)latestAdminUsers[targetIndex]={...latestAdminUsers[targetIndex],role:newRole};
 
   const card=$('[data-uid="'+uid+'"]');
   const roleLabel=card?.querySelector(".role-current");
   if(roleLabel)roleLabel.textContent=newRole;
 
-  status.textContent="✓ Role assigned successfully: "+newRole;
-  toast("Role assignment complete: "+newRole+". Refreshing…","success",1800);
+  setActionProgress("Role Changed","User account is now "+newRole+".");
+  toast("Role changed successfully to "+newRole,"success",3500);
 
+  // Close both prompts after success, then refresh User Monitor from Firestore listener.
   closeRoleManager();
-  setTimeout(()=>window.location.reload(),650);
+  setTimeout(()=>hideActionProgress(),500);
+
  }catch(e){
-  console.error("ROLE MANAGER ERROR",e);
+  console.error("ROLE ASSIGNMENT ERROR",e);
+  hideActionProgress();
   const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
   status.textContent="Failed: "+detail;
+  alert("Role assignment failed.\n\n"+detail);
+  toast("Role assignment failed","error",4500);
  }finally{
   roleAssignmentBusy=false;
   saveBtn.disabled=false;
  }
 }
-
 function loadUserAdmin(){
  if(profile?.role!=="admin"||userAdminLoaded)return;
  userAdminLoaded=true;
@@ -1243,7 +1528,66 @@ function loadUserAdmin(){
   });
  });
 }
-auth.onAuthStateChanged(async u=>{user=u;userAdminLoaded=false;if(!u){profile=null;showAuthState("login");return}try{db.collection("users").doc(u.uid).onSnapshot(async p=>{if(!p.exists){showAuthState("login");return}profile=p.data();if(profile.status==="pending"){showAuthState("pending");return}if(profile.status!=="approved"){showAuthState("rejected");return}renderProfileButton();if(profile.themeColor)applyAccentTheme(profile.themeColor,false);if(profile.role!=="admin")$$(".admin").forEach(x=>x.classList.add("hidden"));else $$(".admin").forEach(x=>x.classList.remove("hidden"));showAuthState("app");startPresence();await seedDemoData();loadAll()})}catch(e){await auth.signOut();$("#loginErr").textContent="Unable to verify account.";$("#loginErr").classList.remove("hidden")}})
+auth.onAuthStateChanged(async u=>{
+ user=u;
+ userAdminLoaded=false;
+
+ if(!u){
+  profile=null;
+  appInitializedForUid=null;
+  clearRegistryListeners();
+  showAuthState("login");
+  return;
+ }
+
+ try{
+  db.collection("users").doc(u.uid).onSnapshot(async p=>{
+   if(!p.exists){showAuthState("login");return}
+
+   const previousRole=profile?.role;
+   profile=p.data();
+
+   if(profile.status==="pending"){showAuthState("pending");return}
+   if(profile.status!=="approved"){showAuthState("rejected");return}
+
+   renderProfileButton();
+   if(profile.themeColor)applyAccentTheme(profile.themeColor,false);
+
+   if(profile.role!=="admin")$$(".admin").forEach(x=>x.classList.add("hidden"));
+   else $$(".admin").forEach(x=>x.classList.remove("hidden"));
+
+   showAuthState("app");
+
+   // Initialize live registry listeners only once per signed-in account.
+   // Presence/profile updates must not create duplicate listeners.
+   if(appInitializedForUid!==u.uid){
+    appInitializedForUid=u.uid;
+    startPresence();
+    loadAll();
+    if(profile.role==="admin")removeStoredDemoEntries();
+   }
+
+   // If this user's own role changes while logged in, permissions/UI change immediately.
+   if(previousRole&&previousRole!==profile.role){
+    userAdminLoaded=false;
+    renderHome();
+    ["expats","vehicles","vessels"].forEach(reg=>renderRegistry(reg));
+    if(profile.role==="admin"){loadUserAdmin();removeStoredDemoEntries();}
+    else if(!$("#users").classList.contains("hidden"))switchView("home");
+    toast("Your account role is now "+profile.role,"success",4000);
+   }
+  },async e=>{
+   console.error("PROFILE LISTENER ERROR",e);
+   await auth.signOut();
+   $("#loginErr").textContent="Unable to verify account.";
+   $("#loginErr").classList.remove("hidden");
+  });
+ }catch(e){
+  await auth.signOut();
+  $("#loginErr").textContent="Unable to verify account.";
+  $("#loginErr").classList.remove("hidden");
+ }
+})
 })();
 </script>
 </body>

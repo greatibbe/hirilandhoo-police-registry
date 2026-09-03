@@ -280,6 +280,27 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
  .tab-row .tab{width:100%}
 }
 
+
+/* v24 Excel bulk entry and duplicate manager */
+.bulk-file-zone{border:1px dashed var(--line);border-radius:10px;padding:14px;background:var(--card);margin:10px 0}
+.bulk-file-zone input[type=file]{width:100%}
+.bulk-file-meta{font-size:10px;color:var(--muted);margin-top:7px}
+.dup-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.dup-summary .metric{padding:10px}
+.dup-review{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.dup-row{display:grid;grid-template-columns:34px 1.4fr 1.2fr 170px;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid var(--line);font-size:10px}
+.dup-row:last-child{border-bottom:0}
+.dup-row.duplicate{background:rgba(180,110,20,.08)}
+.dup-row .dup-title{font-weight:800}
+.dup-row .dup-sub{color:var(--muted);font-size:9px;margin-top:2px}
+.dup-action{min-height:38px}
+.bulk-sheet-select{max-width:260px}
+@media(max-width:760px){
+ .dup-summary{grid-template-columns:1fr}
+ .dup-row{grid-template-columns:28px 1fr}
+ .dup-row>div:nth-child(3),.dup-row>select{grid-column:2}
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>">
 </head>
@@ -453,28 +474,69 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 
 
 
+
 <div id="bulkImportBg" class="modalbg hidden">
- <div class="modal" style="max-width:850px">
+ <div class="modal" style="max-width:980px">
   <div class="mhead">
-   <div><h2 id="bulkImportTitle">Bulk Add Entries</h2><p>Admin only · paste CSV data</p></div>
+   <div><h2 id="bulkImportTitle">Bulk Add Entries</h2><p>Admin only · Excel / CSV bulk entry</p></div>
    <button type="button" class="btn" id="closeBulkImport">✕</button>
   </div>
-  <form id="bulkImportForm" class="form">
+  <div class="form">
    <input type="hidden" id="bulkImportRegistry">
+
+   <div class="bulk-file-zone">
+    <b>Read entries from file</b>
+    <div class="bulk-import-help">Supported: Excel .xlsx, .xls and CSV .csv. The first row must contain field names.</div>
+    <input id="bulkEntryFile" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    <div id="bulkFileMeta" class="bulk-file-meta">No file selected.</div>
+    <div style="margin-top:8px">
+     <label>Excel sheet <select id="bulkSheetSelect" class="bulk-sheet-select" disabled><option>First sheet</option></select></label>
+    </div>
+   </div>
+
    <div class="bulk-import-help">
-    First row must contain field names. Use the field IDs shown in the template. Commas inside a value must be inside double quotes.
+    You can also paste CSV manually below. File upload takes priority if a file is selected.
    </div>
    <div id="bulkTemplate" class="bulk-template"></div>
    <div class="field span3">
-    <label>CSV entries</label>
-    <textarea id="bulkCsvText" class="bulk-import-area" placeholder="Paste CSV here"></textarea>
+    <label>CSV entries (optional)</label>
+    <textarea id="bulkCsvText" class="bulk-import-area" placeholder="Or paste CSV here"></textarea>
+   </div>
+
+   <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn primary" id="reviewBulkImport">Check File / Find Duplicates</button>
+    <button type="button" class="btn" id="clearBulkImport">Clear</button>
    </div>
    <div id="bulkImportStatus" class="role-save-status"></div>
-   <div class="mfoot">
-    <button type="button" class="btn" id="cancelBulkImport">Cancel</button>
-    <button type="submit" class="btn primary" id="runBulkImport">Add Entries</button>
+
+   <div id="duplicateReviewPanel" class="hidden">
+    <div class="dup-summary">
+     <div class="metric"><b id="bulkTotalRows">0</b><span>Rows in file</span></div>
+     <div class="metric"><b id="bulkNewRows">0</b><span>New entries</span></div>
+     <div class="metric"><b id="bulkDuplicateRows">0</b><span>Duplicates</span></div>
+    </div>
+
+    <div class="bulk-import-help">
+     Duplicate actions:
+     <b>Merge</b> fills non-empty imported values into the existing record.
+     <b>Replace</b> updates the existing record using the imported row.
+     <b>Skip/Delete duplicate row</b> ignores the duplicate row from this import.
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+     <button type="button" class="btn small" id="allDuplicatesMerge">All duplicates: Merge</button>
+     <button type="button" class="btn small" id="allDuplicatesReplace">All duplicates: Replace</button>
+     <button type="button" class="btn small deletebtn" id="allDuplicatesSkip">All duplicates: Skip/Delete</button>
+    </div>
+
+    <div id="duplicateReviewList" class="dup-review"></div>
+
+    <div class="mfoot">
+     <button type="button" class="btn" id="cancelBulkImport">Cancel</button>
+     <button type="button" class="btn primary" id="runBulkImport">Import Reviewed Entries</button>
+    </div>
    </div>
-  </form>
+  </div>
  </div>
 </div>
 
@@ -497,6 +559,7 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 (()=> {
@@ -739,73 +802,330 @@ function csvSplitLine(line){
  out.push(cur.trim());
  return out;
 }
+
 function bulkFieldIds(reg){
  return schemas[reg].sections.flatMap(x=>x[1]).map(f=>f[0]).filter(id=>
   id!=="OWNER_SCAN"&&id!=="EXPAT_SCAN"&&
   !(reg==="vehicles"&&(id==="checkedOfficerServiceNo"||id==="checkedDateTime"))
  );
 }
+
+function duplicateKeyFields(reg){
+ if(reg==="expats")return ["passport"];
+ if(reg==="vehicles")return ["registrationNo"];
+ if(reg==="vessels")return ["registrationNo"];
+ return schemas[reg].primary.slice(0,1);
+}
+
+function normalizeDupValue(v){
+ return String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+}
+
+function makeDuplicateKey(reg,obj){
+ const keys=duplicateKeyFields(reg);
+ const vals=keys.map(k=>normalizeDupValue(obj?.[k]));
+ if(vals.some(v=>!v))return "";
+ return vals.join("||");
+}
+
+function rowLabel(reg,obj){
+ if(reg==="expats")return obj.name||obj.passport||"Expat";
+ if(reg==="vehicles")return obj.registrationNo||obj.ownerName||"Vehicle";
+ if(reg==="vessels")return obj.registrationNo||obj.vesselName||"Vessel";
+ return recordName(reg,obj);
+}
+
+let bulkWorkbook=null;
+let bulkParsedRows=[];
+let bulkReviewRows=[];
+
 function openBulkImport(reg){
- if(profile?.role!=="admin")return;
+ if(profile?.role!=="admin"){toast("Bulk entry is available to Admin only","error");return}
  const ids=bulkFieldIds(reg);
  $("#bulkImportRegistry").value=reg;
  $("#bulkImportTitle").textContent="Bulk Add "+schemas[reg].title.replace(" Registry","")+" Entries";
- $("#bulkTemplate").textContent="Header template:\n"+ids.join(",");
+ $("#bulkTemplate").textContent="Valid field IDs / header template:\n"+ids.join(",");
  $("#bulkCsvText").value="";
+ $("#bulkEntryFile").value="";
+ $("#bulkFileMeta").textContent="No file selected.";
+ $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
+ $("#bulkSheetSelect").disabled=true;
  $("#bulkImportStatus").textContent="";
+ $("#duplicateReviewPanel").classList.add("hidden");
+ $("#duplicateReviewList").innerHTML="";
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
  $("#bulkImportBg").classList.remove("hidden");
 }
+
 function closeBulkImport(){
  $("#bulkImportBg").classList.add("hidden");
- $("#bulkCsvText").value="";
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
 }
-async function runBulkImport(ev){
- ev.preventDefault();
- const reg=$("#bulkImportRegistry").value;
- const raw=$("#bulkCsvText").value.trim();
- const status=$("#bulkImportStatus");
- const btn=$("#runBulkImport");
- if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
- if(!raw){status.textContent="Paste CSV entries first.";return}
 
- const lines=raw.split(/\r?\n/).filter(x=>x.trim());
- if(lines.length<2){status.textContent="CSV must have a header row and at least one entry.";return}
- const headers=csvSplitLine(lines[0]);
- const allowed=new Set(bulkFieldIds(reg));
- const invalid=headers.filter(h=>!allowed.has(h));
- if(invalid.length){status.textContent="Unknown field(s): "+invalid.join(", ");return}
+function clearBulkImport(){
+ $("#bulkCsvText").value="";
+ $("#bulkEntryFile").value="";
+ $("#bulkFileMeta").textContent="No file selected.";
+ $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
+ $("#bulkSheetSelect").disabled=true;
+ $("#duplicateReviewPanel").classList.add("hidden");
+ $("#duplicateReviewList").innerHTML="";
+ $("#bulkImportStatus").textContent="";
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
+}
 
- const rows=lines.slice(1).map(line=>{
+async function readBulkFile(file){
+ if(!file)return [];
+ const name=file.name.toLowerCase();
+
+ if(name.endsWith(".csv")){
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(x=>x.trim());
+  if(!lines.length)return [];
+  const headers=csvSplitLine(lines[0]).map(x=>x.trim());
+  return lines.slice(1).map(line=>{
+   const vals=csvSplitLine(line),obj={};
+   headers.forEach((h,i)=>obj[h]=(vals[i]??"").trim());
+   return obj;
+  });
+ }
+
+ if(!window.XLSX)throw new Error("Excel reader library did not load. Check internet connection and refresh.");
+ const buf=await file.arrayBuffer();
+ bulkWorkbook=XLSX.read(buf,{type:"array",cellDates:false,raw:false});
+
+ const sel=$("#bulkSheetSelect");
+ sel.innerHTML=bulkWorkbook.SheetNames.map((n,i)=>'<option value="'+i+'">'+esc(n)+'</option>').join("");
+ sel.disabled=bulkWorkbook.SheetNames.length<=1;
+
+ const sheetName=bulkWorkbook.SheetNames[Number(sel.value||0)]||bulkWorkbook.SheetNames[0];
+ const ws=bulkWorkbook.Sheets[sheetName];
+ return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+}
+
+function readSelectedWorkbookSheet(){
+ if(!bulkWorkbook)return [];
+ const sel=$("#bulkSheetSelect");
+ const sheetName=bulkWorkbook.SheetNames[Number(sel.value||0)]||bulkWorkbook.SheetNames[0];
+ const ws=bulkWorkbook.Sheets[sheetName];
+ return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+}
+
+function parseManualBulkCsv(raw){
+ const lines=String(raw||"").split(/\r?\n/).filter(x=>x.trim());
+ if(lines.length<2)return [];
+ const headers=csvSplitLine(lines[0]).map(x=>x.trim());
+ return lines.slice(1).map(line=>{
   const vals=csvSplitLine(line),obj={};
   headers.forEach((h,i)=>obj[h]=(vals[i]??"").trim());
   return obj;
  });
- if(!rows.length)return;
+}
+
+function validateBulkRows(reg,rows){
+ const allowed=new Set(bulkFieldIds(reg));
+ if(!rows.length)throw new Error("No entries found in the selected file/sheet.");
+ const fileHeaders=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+ const invalid=fileHeaders.filter(h=>h&&!allowed.has(h));
+ if(invalid.length)throw new Error("Unknown field(s): "+invalid.join(", "));
+ return rows.map(r=>{
+  const obj={};
+  Object.entries(r).forEach(([k,v])=>{
+   if(allowed.has(k))obj[k]=String(v??"").trim();
+  });
+  return obj;
+ });
+}
+
+function buildDuplicateReview(reg,rows){
+ const existingMap=new Map();
+ (data[reg]||[]).forEach(r=>{
+  const key=makeDuplicateKey(reg,r);
+  if(key&&!existingMap.has(key))existingMap.set(key,r);
+ });
+
+ const incomingMap=new Map();
+ bulkReviewRows=rows.map((row,index)=>{
+  const key=makeDuplicateKey(reg,row);
+  const existing=key?existingMap.get(key):null;
+  const priorIncoming=key?incomingMap.get(key):null;
+  const duplicate=!!existing||priorIncoming!==undefined;
+  if(key&&!incomingMap.has(key))incomingMap.set(key,index);
+
+  return {
+   index,
+   row,
+   key,
+   duplicate,
+   existing:existing||null,
+   duplicateOfIncoming:priorIncoming!==undefined?priorIncoming:null,
+   action:duplicate?"merge":"create"
+  };
+ });
+
+ renderDuplicateReview(reg);
+}
+
+function renderDuplicateReview(reg){
+ const total=bulkReviewRows.length;
+ const dups=bulkReviewRows.filter(x=>x.duplicate).length;
+ $("#bulkTotalRows").textContent=total;
+ $("#bulkNewRows").textContent=total-dups;
+ $("#bulkDuplicateRows").textContent=dups;
+
+ $("#duplicateReviewList").innerHTML=bulkReviewRows.map((x,i)=>{
+  const existingLabel=x.existing?rowLabel(reg,x.existing):(x.duplicateOfIncoming!==null?"Earlier row #"+(x.duplicateOfIncoming+1):"");
+  return '<div class="dup-row '+(x.duplicate?'duplicate':'')+'" data-bulk-review="'+i+'">'+
+   '<div><b>#'+(i+1)+'</b></div>'+
+   '<div><div class="dup-title">'+esc(rowLabel(reg,x.row))+'</div><div class="dup-sub">'+esc(x.key||"No duplicate key")+'</div></div>'+
+   '<div><div class="dup-sub">'+(x.duplicate?'Duplicate of: '+esc(existingLabel):'New record')+'</div></div>'+
+   (x.duplicate
+    ?'<select class="dup-action" data-dup-action="'+i+'">'+
+      '<option value="merge" '+(x.action==="merge"?'selected':'')+'>Merge with existing</option>'+
+      '<option value="replace" '+(x.action==="replace"?'selected':'')+'>Replace existing</option>'+
+      '<option value="skip" '+(x.action==="skip"?'selected':'')+'>Skip / Delete duplicate row</option>'+
+     '</select>'
+    :'<span class="tag">Create new</span>')+
+   '</div>';
+ }).join("");
+
+ $$("[data-dup-action]").forEach(sel=>sel.onchange=()=>{
+  const x=bulkReviewRows[Number(sel.dataset.dupAction)];
+  if(x)x.action=sel.value;
+ });
+ $("#duplicateReviewPanel").classList.remove("hidden");
+}
+
+function setAllDuplicateActions(action){
+ bulkReviewRows.forEach(x=>{if(x.duplicate)x.action=action});
+ const reg=$("#bulkImportRegistry").value;
+ renderDuplicateReview(reg);
+}
+
+async function reviewBulkImport(){
+ const reg=$("#bulkImportRegistry").value;
+ const status=$("#bulkImportStatus");
+ if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
+
+ status.textContent="Reading entries…";
+ try{
+  let rows=[];
+  const file=$("#bulkEntryFile").files?.[0];
+
+  if(file){
+   if(bulkWorkbook&& !file.name.toLowerCase().endsWith(".csv")) rows=readSelectedWorkbookSheet();
+   else rows=await readBulkFile(file);
+  }else{
+   rows=parseManualBulkCsv($("#bulkCsvText").value);
+  }
+
+  bulkParsedRows=validateBulkRows(reg,rows);
+  buildDuplicateReview(reg,bulkParsedRows);
+  const dupCount=bulkReviewRows.filter(x=>x.duplicate).length;
+  status.textContent="Review complete. "+bulkParsedRows.length+" rows found, "+dupCount+" duplicate(s).";
+ }catch(e){
+  console.error("BULK REVIEW ERROR",e);
+  status.textContent="Failed: "+(e?.message||e);
+  $("#duplicateReviewPanel").classList.add("hidden");
+ }
+}
+
+async function runBulkImport(){
+ const reg=$("#bulkImportRegistry").value;
+ const status=$("#bulkImportStatus");
+ const btn=$("#runBulkImport");
+ if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
+ if(!bulkReviewRows.length){status.textContent="Check the file for duplicates first.";return}
 
  btn.disabled=true;
- showActionProgress("Adding Entries","Adding "+rows.length+" "+schemas[reg].title.toLowerCase()+" entries…");
+ showActionProgress("Importing Entries","Applying reviewed duplicate actions…");
+
+ let created=0,merged=0,replaced=0,skipped=0;
  try{
-  for(let i=0;i<rows.length;i+=400){
-   const batch=db.batch();
-   rows.slice(i,i+400).forEach(obj=>{
+  // We process sequentially so duplicate rows inside the same import remain deterministic.
+  const currentByKey=new Map();
+  (data[reg]||[]).forEach(r=>{
+   const k=makeDuplicateKey(reg,r);
+   if(k&&!currentByKey.has(k))currentByKey.set(k,r);
+  });
+
+  for(const item of bulkReviewRows){
+   const row={...item.row};
+   const key=makeDuplicateKey(reg,row);
+   let existing=key?currentByKey.get(key):null;
+
+   if(item.duplicate&&item.action==="skip"){
+    skipped++;
+    continue;
+   }
+
+   if(existing){
+    const ref=db.collection("registries").doc(reg).collection("records").doc(existing.id);
+
+    if(item.action==="merge"){
+     // Merge only meaningful/non-empty imported values.
+     const mergedData={};
+     Object.entries(row).forEach(([k,v])=>{if(String(v??"").trim()!=="")mergedData[k]=v});
+     mergedData.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
+     mergedData.updatedBy=user.uid;
+     await ref.update(mergedData);
+     Object.assign(existing,mergedData);
+     merged++;
+    }else if(item.action==="replace"){
+     const replacement={
+      ...row,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy:user.uid
+     };
+     // Preserve core creation metadata while replacing content fields.
+     if(existing.createdAt)replacement.createdAt=existing.createdAt;
+     if(existing.createdBy)replacement.createdBy=existing.createdBy;
+     if(existing.createdDate)replacement.createdDate=existing.createdDate;
+     await ref.set(replacement,{merge:false});
+     const newExisting={...replacement,id:existing.id};
+     currentByKey.set(key,newExisting);
+     existing=newExisting;
+     replaced++;
+    }else{
+     skipped++;
+    }
+   }else{
     const ref=db.collection("registries").doc(reg).collection("records").doc();
-    batch.set(ref,{
-     ...obj,
+    const payload={
+     ...row,
      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
      createdBy:user.uid,
      updatedBy:user.uid,
      createdDate:new Date().toISOString().slice(0,10)
-    });
-   });
-   await batch.commit();
+    };
+
+    // Vehicle checking fields are generated automatically for bulk-created vehicles too.
+    if(reg==="vehicles"){
+     payload.checkedOfficerServiceNo=profile?.service_number||"";
+     payload.checkedDateTime=new Date().toLocaleString("en-GB",{
+      year:"numeric",month:"2-digit",day:"2-digit",
+      hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false
+     });
+     payload.checkedAt=firebase.firestore.FieldValue.serverTimestamp();
+     if(!payload.checkStatus)payload.checkStatus="Checked";
+    }
+
+    await ref.set(payload);
+    const local={...payload,id:ref.id};
+    if(key)currentByKey.set(key,local);
+    created++;
+   }
   }
-  await audit("BULK_CREATE",reg,"",rows.length+" entries");
+
+  await audit("BULK_CREATE",reg,"","Created "+created+", merged "+merged+", replaced "+replaced+", skipped "+skipped);
   await refreshRegistryNow(reg);
+
   closeBulkImport();
-  setActionProgress("Bulk Entry Complete",rows.length+" entries added successfully.");
-  toast(rows.length+" entries added successfully","success",3500);
-  setTimeout(()=>hideActionProgress(),650);
+  setActionProgress("Bulk Entry Complete","Created "+created+" · Merged "+merged+" · Replaced "+replaced+" · Skipped "+skipped);
+  toast("Bulk import complete","success",3500);
+  setTimeout(()=>hideActionProgress(),900);
+
  }catch(e){
   console.error("BULK IMPORT ERROR",e);
   hideActionProgress();
@@ -823,7 +1143,7 @@ function renderRegistry(reg){
  '<div class="hero"><h2>'+s.icon+' '+s.title+'</h2><p>Hirilandhoo Police official registry</p></div>'+
  '<div class="cards"><div class="metric"><b>'+rows.length+'</b><span>Total records</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>30).length+'</b><span>Valid</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length+'</b><span>Expiring ≤30d</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)<0).length+'</b><span>Expired</span></div><div class="metric"><b>'+rows.filter(r=>r.createdDate===new Date().toISOString().slice(0,10)).length+'</b><span>Added today</span></div></div>'+
  (writeAllowed?'':'<div class="readonly-note">Viewer access: read-only. Add, edit and delete actions are disabled.</div>')+'<div class="toolbar"><div class="search"><input id="search_'+reg+'" placeholder="Search '+s.title.toLowerCase()+'…"></div><select id="filter_'+reg+'"><option value="all">All</option><option value="valid">Valid</option><option value="soon">Expiring</option><option value="expired">Expired</option></select><button class="btn" id="csv_'+reg+'">CSV</button>'+(writeAllowed?'<button class="btn primary" id="new_'+reg+'">＋ New</button>':'')+'</div>'+
- (isAdmin?'<div class="bulkbar bulk-tools"><button class="btn small" id="bulkAdd_'+reg+'">＋ Bulk Add Entries</button><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete Selected</button></div>':'')+
+ (isAdmin?'<div class="bulkbar bulk-tools"><button class="btn small" id="bulkAdd_'+reg+'">＋ Bulk Entry from Excel / CSV</button><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete Selected</button></div>':'')+
  '<div class="panel"><div class="listhead">'+s.title+'</div><div id="list_'+reg+'"></div></div>';
 
  const selected=new Set();
@@ -1215,7 +1535,30 @@ $$('input[name="themeAccent"]').forEach(r=>r.onchange=async()=>{
 });
 
 
-$("#bulkImportForm").onsubmit=runBulkImport;
+$("#bulkEntryFile").onchange=async()=>{
+ const f=$("#bulkEntryFile").files?.[0];
+ $("#bulkFileMeta").textContent=f?f.name+" · "+Math.round(f.size/1024)+" KB":"No file selected.";
+ bulkWorkbook=null;
+ $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
+ $("#bulkSheetSelect").disabled=true;
+ $("#duplicateReviewPanel").classList.add("hidden");
+ if(f&&!f.name.toLowerCase().endsWith(".csv")){
+  try{
+   await readBulkFile(f);
+   $("#bulkFileMeta").textContent=f.name+" · "+Math.round(f.size/1024)+" KB · "+bulkWorkbook.SheetNames.length+" sheet(s)";
+  }catch(e){
+   $("#bulkImportStatus").textContent="Could not read Excel file: "+(e?.message||e);
+  }
+ }
+};
+$("#bulkSheetSelect").onchange=()=>$("#duplicateReviewPanel").classList.add("hidden");
+$("#reviewBulkImport").onclick=reviewBulkImport;
+$("#runBulkImport").onclick=runBulkImport;
+$("#clearBulkImport").onclick=clearBulkImport;
+$("#allDuplicatesMerge").onclick=()=>setAllDuplicateActions("merge");
+$("#allDuplicatesReplace").onclick=()=>setAllDuplicateActions("replace");
+$("#allDuplicatesSkip").onclick=()=>setAllDuplicateActions("skip");
+
 $("#closeBulkImport").onclick=closeBulkImport;
 $("#cancelBulkImport").onclick=closeBulkImport;
 

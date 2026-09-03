@@ -838,6 +838,7 @@ function rowLabel(reg,obj){
 let bulkWorkbook=null;
 let bulkParsedRows=[];
 let bulkReviewRows=[];
+let bulkProvidedFields=[];
 
 function openBulkImport(reg){
  if(profile?.role!=="admin"){toast("Bulk entry is available to Admin only","error");return}
@@ -853,13 +854,13 @@ function openBulkImport(reg){
  $("#bulkImportStatus").textContent="";
  $("#duplicateReviewPanel").classList.add("hidden");
  $("#duplicateReviewList").innerHTML="";
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
  $("#bulkImportBg").classList.remove("hidden");
 }
 
 function closeBulkImport(){
  $("#bulkImportBg").classList.add("hidden");
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
 }
 
 function clearBulkImport(){
@@ -871,7 +872,7 @@ function clearBulkImport(){
  $("#duplicateReviewPanel").classList.add("hidden");
  $("#duplicateReviewList").innerHTML="";
  $("#bulkImportStatus").textContent="";
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];
+ bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
 }
 
 async function readBulkFile(file){
@@ -923,17 +924,34 @@ function parseManualBulkCsv(raw){
 }
 
 function validateBulkRows(reg,rows){
- const allowed=new Set(bulkFieldIds(reg));
+ const validIds=bulkFieldIds(reg);
+ const allowed=new Set(validIds);
  if(!rows.length)throw new Error("No entries found in the selected file/sheet.");
- const fileHeaders=[...new Set(rows.flatMap(r=>Object.keys(r)))];
- const invalid=fileHeaders.filter(h=>h&&!allowed.has(h));
- if(invalid.length)throw new Error("Unknown field(s): "+invalid.join(", "));
- return rows.map(r=>{
+
+ const lookup=new Map(validIds.map(id=>[id.toLowerCase(),id]));
+
+ const normalizedRows=rows.map(source=>{
   const obj={};
-  Object.entries(r).forEach(([k,v])=>{
-   if(allowed.has(k))obj[k]=String(v??"").trim();
+  Object.entries(source||{}).forEach(([rawKey,v])=>{
+   const key=String(rawKey||"").trim();
+   if(!key)return;
+   const exact=allowed.has(key)?key:lookup.get(key.toLowerCase());
+   if(exact)obj[exact]=String(v??"").trim();
   });
   return obj;
+ });
+
+ const recognized=[...new Set(normalizedRows.flatMap(r=>Object.keys(r)))];
+ if(!recognized.length){
+  throw new Error("No recognized registry fields were found in this file.");
+ }
+
+ bulkProvidedFields=normalizedRows.map(obj=>new Set(Object.keys(obj)));
+
+ return normalizedRows.map(obj=>{
+  const filled={};
+  validIds.forEach(id=>filled[id]=Object.prototype.hasOwnProperty.call(obj,id)?obj[id]:"");
+  return filled;
  });
 }
 
@@ -955,6 +973,7 @@ function buildDuplicateReview(reg,rows){
   return {
    index,
    row,
+   providedFields:bulkProvidedFields[index]||new Set(Object.keys(row)),
    key,
    duplicate,
    existing:existing||null,
@@ -1063,9 +1082,12 @@ async function runBulkImport(){
     const ref=db.collection("registries").doc(reg).collection("records").doc(existing.id);
 
     if(item.action==="merge"){
-     // Merge only meaningful/non-empty imported values.
+     // Merge only fields that were actually provided by the uploaded file.
      const mergedData={};
-     Object.entries(row).forEach(([k,v])=>{if(String(v??"").trim()!=="")mergedData[k]=v});
+     (item.providedFields||new Set()).forEach(k=>{
+      const v=row[k];
+      if(String(v??"").trim()!=="")mergedData[k]=v;
+     });
      mergedData.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
      mergedData.updatedBy=user.uid;
      await ref.update(mergedData);

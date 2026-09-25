@@ -301,6 +301,7 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
  .dup-row>div:nth-child(3),.dup-row>select{grid-column:2}
 }
 
+.driver-hidden{display:none!important}
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>">
 </head>
@@ -475,71 +476,6 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 
 
 
-<div id="bulkImportBg" class="modalbg hidden">
- <div class="modal" style="max-width:980px">
-  <div class="mhead">
-   <div><h2 id="bulkImportTitle">Bulk Add Entries</h2><p>Admin only · Excel / CSV bulk entry</p></div>
-   <button type="button" class="btn" id="closeBulkImport">✕</button>
-  </div>
-  <div class="form">
-   <input type="hidden" id="bulkImportRegistry">
-
-   <div class="bulk-file-zone">
-    <b>Read entries from file</b>
-    <div class="bulk-import-help">Supported: Excel .xlsx, .xls and CSV .csv. The first row must contain field names.</div>
-    <input id="bulkEntryFile" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <div id="bulkFileMeta" class="bulk-file-meta">No file selected.</div>
-    <div style="margin-top:8px">
-     <label>Excel sheet <select id="bulkSheetSelect" class="bulk-sheet-select" disabled><option>First sheet</option></select></label>
-    </div>
-   </div>
-
-   <div class="bulk-import-help">
-    You can also paste CSV manually below. File upload takes priority if a file is selected.
-   </div>
-   <div id="bulkTemplate" class="bulk-template"></div>
-   <div class="field span3">
-    <label>CSV entries (optional)</label>
-    <textarea id="bulkCsvText" class="bulk-import-area" placeholder="Or paste CSV here"></textarea>
-   </div>
-
-   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button type="button" class="btn primary" id="reviewBulkImport">Check File / Find Duplicates</button>
-    <button type="button" class="btn" id="clearBulkImport">Clear</button>
-   </div>
-   <div id="bulkImportStatus" class="role-save-status"></div>
-
-   <div id="duplicateReviewPanel" class="hidden">
-    <div class="dup-summary">
-     <div class="metric"><b id="bulkTotalRows">0</b><span>Rows in file</span></div>
-     <div class="metric"><b id="bulkNewRows">0</b><span>New entries</span></div>
-     <div class="metric"><b id="bulkDuplicateRows">0</b><span>Duplicates</span></div>
-    </div>
-
-    <div class="bulk-import-help">
-     Duplicate actions:
-     <b>Merge</b> fills non-empty imported values into the existing record.
-     <b>Replace</b> updates the existing record using the imported row.
-     <b>Skip/Delete duplicate row</b> ignores the duplicate row from this import.
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
-     <button type="button" class="btn small" id="allDuplicatesMerge">All duplicates: Merge</button>
-     <button type="button" class="btn small" id="allDuplicatesReplace">All duplicates: Replace</button>
-     <button type="button" class="btn small deletebtn" id="allDuplicatesSkip">All duplicates: Skip/Delete</button>
-    </div>
-
-    <div id="duplicateReviewList" class="dup-review"></div>
-
-    <div class="mfoot">
-     <button type="button" class="btn" id="cancelBulkImport">Cancel</button>
-     <button type="button" class="btn primary" id="runBulkImport">Import Reviewed Entries</button>
-    </div>
-   </div>
-  </div>
- </div>
-</div>
-
 <div id="actionProgressBg" class="modalbg hidden">
  <div class="modal" style="max-width:440px">
   <div class="action-progress-box">
@@ -559,7 +495,6 @@ button,.btn{min-height:42px;min-width:42px;position:relative;z-index:1}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 (()=> {
@@ -617,11 +552,11 @@ vehicles:{title:"Vehicle Registry",icon:"🚗",primary:["registrationNo","ownerN
 ["Annual Fee",[["annualFeeExpiry","Annual fee expiry date","date"]]],
 ["Insurance",[["insuranceExpiry","Insurance expiry date","date"]]],
 ["Roadworthiness",[["roadworthinessExpiry","Roadworthiness expiry date","date"]]],
-["Vehicle Check",[["checkedOfficerServiceNo","Checked officer service number","text"],["checkedLocation","Checked location","text"],["checkStatus","Check status","select","",["Checked","Re-check required"]],["checkedDateTime","Checked date & time","text"]]],
-["Police Registry",[["status","Vehicle status","select","",["Active","Transferred","Suspended","Scrapped"]],["notes","Police remarks","textarea"]]]],docs:[["vehiclePhoto","Vehicle photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"],["annualFeeDoc","Annual fee"],["insuranceDoc","Insurance"],["roadworthinessDoc","Roadworthiness"]]},
+["Vehicle Check",[["interactingOfficer","Interacting officer (enter manually)","text"],["checkedOfficerServiceNo","Checked officer service number","text"],["checkedLocation","Checked location","text"],["checkStatus","Check status","select","",["Checked","Re-check required"]],["checkedDateTime","Checked date & time","text"]]],
+["Current Driver",[["driverIsOwner","Is current driver the owner?","select","",["Yes","No"]],["currentDriverName","Current driver name","text"]]],["Police Registry",[["status","Vehicle status","select","",["Active","Transferred","Suspended","Scrapped"]],["notes","Police remarks","textarea"]]]],docs:[["vehiclePhoto","Vehicle photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"],["annualFeeDoc","Annual fee"],["insuranceDoc","Insurance"],["roadworthinessDoc","Roadworthiness"]]},
 vessels:{title:"Vessel Registry",icon:"🚤",primary:["registrationNo","vesselName","ownerName"],expiry:[],sections:[
 ["Vessel Information",[["registrationNo","Vessel registration number","text",1],["vesselName","Vessel name","text",1],["vesselType","Vessel type","select","",["Fishing vessel","Speedboat","Dhoani","Cargo","Passenger","Recreational","Other"]],["homePort","Home port","text"],["length","Length","text"]]],
-["Owner Information",[["ownerName","Full name","text",1],["ownerId","ID card number","text",1],["ownerPhone","Phone","tel"],["ownerEmail","Email","email"],["ownerAddress","Address","textarea"]]],["Owner ID Card Scan",[["OWNER_SCAN","Scan ID card","scan"]]],["Police Registry",[["captainName","Captain / master","text"],["captainPhone","Captain phone","tel"],["status","Vessel status","select","",["Active","Transferred","Suspended","Decommissioned"]],["notes","Police remarks","textarea"]]]],docs:[["vesselPhoto","Vessel photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"]]}}
+["Owner Information",[["ownerName","Full name","text",1],["ownerId","ID card number","text",1],["ownerPhone","Phone","tel"],["ownerEmail","Email","email"],["ownerAddress","Address","textarea"]]],["Owner ID Card Scan",[["OWNER_SCAN","Scan ID card","scan"]]],["Police Registry",[["interactingOfficer","Interacting officer (enter manually)","text"],["captainName","Captain / master","text"],["captainPhone","Captain phone","tel"],["status","Vessel status","select","",["Active","Transferred","Suspended","Decommissioned"]],["notes","Police remarks","textarea"]]]],docs:[["vesselPhoto","Vessel photo"],["ownerIdCard","Owner ID card"],["registrationDoc","Registration document"]]}}
 ;
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -634,7 +569,7 @@ function showAuthState(which){
  $("#rejectedView").classList.toggle("hidden",which!=="rejected");
  $("#app").classList.toggle("hidden",which!=="app");
 }
-function audit(action,registry,id,name){return db.collection("auditLogs").add({action,registry,recordId:id||"",recordName:name||"",userId:user.uid,userEmail:user.email,timestamp:firebase.firestore.FieldValue.serverTimestamp()})}
+function audit(action,registry,id,name){return db.collection("auditLogs").add({action,registry,recordId:id||"",recordName:name||"",userId:user.uid,userEmail:user.email,officerName:profile?.name||"",officerUsername:profile?.username||"",officerServiceNo:profile?.service_number||"",timestamp:firebase.firestore.FieldValue.serverTimestamp()})}
 async function deleteStorageFolder(reg,id){
  try{
   const list=await storage.ref(reg+"/"+id).listAll();
@@ -743,10 +678,53 @@ if(reg==="vehicles"){
   checkedTime.readOnly=true;
   checkedTime.title="Automatically recorded when the vehicle check is saved";
  }
+ const driverOwner=$("#driverIsOwner");
+ const driverName=$("#currentDriverName");
+ if(driverOwner&&driverName){
+  if(!driverOwner.value)driverOwner.value="Yes";
+  const updateDriverVisibility=()=>{
+   const field=driverName.closest(".field");
+   field?.classList.toggle("driver-hidden",driverOwner.value!=="No");
+   if(driverOwner.value!=="No")driverName.value="";
+  };
+  driverOwner.onchange=updateDriverVisibility;
+  updateDriverVisibility();
+ }
 }
 $("#formBg").classList.remove("hidden")}
 function closeForm(){if($("#form")?.classList.contains("busy"))return;$("#formBg").classList.add("hidden");editing=null;files={}}
 function recordName(reg,r){return r[schemas[reg].primary[0]]||"Record"}
+
+function loggedOfficerFields(){
+ return {
+  enteredOfficerUid:user?.uid||"",
+  enteredOfficerName:profile?.name||"",
+  enteredOfficerUsername:profile?.username||"",
+  enteredOfficerServiceNo:profile?.service_number||""
+ };
+}
+async function logVehicleDriver(recordId,driverName,ownerName){
+ if(!recordId||!String(driverName||"").trim())return;
+ await db.collection("registries").doc("vehicles").collection("records").doc(recordId).collection("drivers").add({
+  driverName:String(driverName).trim(),
+  ownerName:ownerName||"",
+  recordedAt:firebase.firestore.FieldValue.serverTimestamp(),
+  recordedByUid:user.uid,
+  recordedByName:profile?.name||"",
+  recordedByServiceNo:profile?.service_number||""
+ });
+}
+async function loadVehicleDriverHistory(recordId){
+ try{
+  const snap=await db.collection("registries").doc("vehicles").collection("records").doc(recordId)
+    .collection("drivers").orderBy("recordedAt","desc").limit(20).get();
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+ }catch(e){
+  console.warn("Driver history load failed",e);
+  return [];
+ }
+}
+
 
 function expiryFieldLabel(key){
  const labels={
@@ -789,384 +767,19 @@ async function removeStoredDemoEntries(){
  }
 }
 
-function csvSplitLine(line){
- const out=[];let cur="",quoted=false;
- for(let i=0;i<line.length;i++){
-  const ch=line[i];
-  if(ch==='"'){
-   if(quoted&&line[i+1]==='"'){cur+='"';i++}
-   else quoted=!quoted;
-  }else if(ch===","&&!quoted){out.push(cur.trim());cur=""}
-  else cur+=ch;
- }
- out.push(cur.trim());
- return out;
-}
-
-function bulkFieldIds(reg){
- return schemas[reg].sections.flatMap(x=>x[1]).map(f=>f[0]).filter(id=>
-  id!=="OWNER_SCAN"&&id!=="EXPAT_SCAN"&&
-  !(reg==="vehicles"&&(id==="checkedOfficerServiceNo"||id==="checkedDateTime"))
- );
-}
-
-function duplicateKeyFields(reg){
- if(reg==="expats")return ["passport"];
- if(reg==="vehicles")return ["registrationNo"];
- if(reg==="vessels")return ["registrationNo"];
- return schemas[reg].primary.slice(0,1);
-}
-
-function normalizeDupValue(v){
- return String(v??"").trim().toLowerCase().replace(/\s+/g," ");
-}
-
-function makeDuplicateKey(reg,obj){
- const keys=duplicateKeyFields(reg);
- const vals=keys.map(k=>normalizeDupValue(obj?.[k]));
- if(vals.some(v=>!v))return "";
- return vals.join("||");
-}
-
-function rowLabel(reg,obj){
- if(reg==="expats")return obj.name||obj.passport||"Expat";
- if(reg==="vehicles")return obj.registrationNo||obj.ownerName||"Vehicle";
- if(reg==="vessels")return obj.registrationNo||obj.vesselName||"Vessel";
- return recordName(reg,obj);
-}
-
-let bulkWorkbook=null;
-let bulkParsedRows=[];
-let bulkReviewRows=[];
-let bulkProvidedFields=[];
-
-function openBulkImport(reg){
- if(profile?.role!=="admin"){toast("Bulk entry is available to Admin only","error");return}
- const ids=bulkFieldIds(reg);
- $("#bulkImportRegistry").value=reg;
- $("#bulkImportTitle").textContent="Bulk Add "+schemas[reg].title.replace(" Registry","")+" Entries";
- $("#bulkTemplate").textContent="Valid field IDs / header template:\n"+ids.join(",");
- $("#bulkCsvText").value="";
- $("#bulkEntryFile").value="";
- $("#bulkFileMeta").textContent="No file selected.";
- $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
- $("#bulkSheetSelect").disabled=true;
- $("#bulkImportStatus").textContent="";
- $("#duplicateReviewPanel").classList.add("hidden");
- $("#duplicateReviewList").innerHTML="";
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
- $("#bulkImportBg").classList.remove("hidden");
-}
-
-function closeBulkImport(){
- $("#bulkImportBg").classList.add("hidden");
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
-}
-
-function clearBulkImport(){
- $("#bulkCsvText").value="";
- $("#bulkEntryFile").value="";
- $("#bulkFileMeta").textContent="No file selected.";
- $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
- $("#bulkSheetSelect").disabled=true;
- $("#duplicateReviewPanel").classList.add("hidden");
- $("#duplicateReviewList").innerHTML="";
- $("#bulkImportStatus").textContent="";
- bulkWorkbook=null;bulkParsedRows=[];bulkReviewRows=[];bulkProvidedFields=[];
-}
-
-async function readBulkFile(file){
- if(!file)return [];
- const name=file.name.toLowerCase();
-
- if(name.endsWith(".csv")){
-  const text=await file.text();
-  const lines=text.split(/\r?\n/).filter(x=>x.trim());
-  if(!lines.length)return [];
-  const headers=csvSplitLine(lines[0]).map(x=>x.trim());
-  return lines.slice(1).map(line=>{
-   const vals=csvSplitLine(line),obj={};
-   headers.forEach((h,i)=>obj[h]=(vals[i]??"").trim());
-   return obj;
-  });
- }
-
- if(!window.XLSX)throw new Error("Excel reader library did not load. Check internet connection and refresh.");
- const buf=await file.arrayBuffer();
- bulkWorkbook=XLSX.read(buf,{type:"array",cellDates:false,raw:false});
-
- const sel=$("#bulkSheetSelect");
- sel.innerHTML=bulkWorkbook.SheetNames.map((n,i)=>'<option value="'+i+'">'+esc(n)+'</option>').join("");
- sel.disabled=bulkWorkbook.SheetNames.length<=1;
-
- const sheetName=bulkWorkbook.SheetNames[Number(sel.value||0)]||bulkWorkbook.SheetNames[0];
- const ws=bulkWorkbook.Sheets[sheetName];
- return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
-}
-
-function readSelectedWorkbookSheet(){
- if(!bulkWorkbook)return [];
- const sel=$("#bulkSheetSelect");
- const sheetName=bulkWorkbook.SheetNames[Number(sel.value||0)]||bulkWorkbook.SheetNames[0];
- const ws=bulkWorkbook.Sheets[sheetName];
- return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
-}
-
-function parseManualBulkCsv(raw){
- const lines=String(raw||"").split(/\r?\n/).filter(x=>x.trim());
- if(lines.length<2)return [];
- const headers=csvSplitLine(lines[0]).map(x=>x.trim());
- return lines.slice(1).map(line=>{
-  const vals=csvSplitLine(line),obj={};
-  headers.forEach((h,i)=>obj[h]=(vals[i]??"").trim());
-  return obj;
- });
-}
-
-function validateBulkRows(reg,rows){
- const validIds=bulkFieldIds(reg);
- const allowed=new Set(validIds);
- if(!rows.length)throw new Error("No entries found in the selected file/sheet.");
-
- const lookup=new Map(validIds.map(id=>[id.toLowerCase(),id]));
-
- const normalizedRows=rows.map(source=>{
-  const obj={};
-  Object.entries(source||{}).forEach(([rawKey,v])=>{
-   const key=String(rawKey||"").trim();
-   if(!key)return;
-   const exact=allowed.has(key)?key:lookup.get(key.toLowerCase());
-   if(exact)obj[exact]=String(v??"").trim();
-  });
-  return obj;
- });
-
- const recognized=[...new Set(normalizedRows.flatMap(r=>Object.keys(r)))];
- if(!recognized.length){
-  throw new Error("No recognized registry fields were found in this file.");
- }
-
- bulkProvidedFields=normalizedRows.map(obj=>new Set(Object.keys(obj)));
-
- return normalizedRows.map(obj=>{
-  const filled={};
-  validIds.forEach(id=>filled[id]=Object.prototype.hasOwnProperty.call(obj,id)?obj[id]:"");
-  return filled;
- });
-}
-
-function buildDuplicateReview(reg,rows){
- const existingMap=new Map();
- (data[reg]||[]).forEach(r=>{
-  const key=makeDuplicateKey(reg,r);
-  if(key&&!existingMap.has(key))existingMap.set(key,r);
- });
-
- const incomingMap=new Map();
- bulkReviewRows=rows.map((row,index)=>{
-  const key=makeDuplicateKey(reg,row);
-  const existing=key?existingMap.get(key):null;
-  const priorIncoming=key?incomingMap.get(key):null;
-  const duplicate=!!existing||priorIncoming!==undefined;
-  if(key&&!incomingMap.has(key))incomingMap.set(key,index);
-
-  return {
-   index,
-   row,
-   providedFields:bulkProvidedFields[index]||new Set(Object.keys(row)),
-   key,
-   duplicate,
-   existing:existing||null,
-   duplicateOfIncoming:priorIncoming!==undefined?priorIncoming:null,
-   action:duplicate?"merge":"create"
-  };
- });
-
- renderDuplicateReview(reg);
-}
-
-function renderDuplicateReview(reg){
- const total=bulkReviewRows.length;
- const dups=bulkReviewRows.filter(x=>x.duplicate).length;
- $("#bulkTotalRows").textContent=total;
- $("#bulkNewRows").textContent=total-dups;
- $("#bulkDuplicateRows").textContent=dups;
-
- $("#duplicateReviewList").innerHTML=bulkReviewRows.map((x,i)=>{
-  const existingLabel=x.existing?rowLabel(reg,x.existing):(x.duplicateOfIncoming!==null?"Earlier row #"+(x.duplicateOfIncoming+1):"");
-  return '<div class="dup-row '+(x.duplicate?'duplicate':'')+'" data-bulk-review="'+i+'">'+
-   '<div><b>#'+(i+1)+'</b></div>'+
-   '<div><div class="dup-title">'+esc(rowLabel(reg,x.row))+'</div><div class="dup-sub">'+esc(x.key||"No duplicate key")+'</div></div>'+
-   '<div><div class="dup-sub">'+(x.duplicate?'Duplicate of: '+esc(existingLabel):'New record')+'</div></div>'+
-   (x.duplicate
-    ?'<select class="dup-action" data-dup-action="'+i+'">'+
-      '<option value="merge" '+(x.action==="merge"?'selected':'')+'>Merge with existing</option>'+
-      '<option value="replace" '+(x.action==="replace"?'selected':'')+'>Replace existing</option>'+
-      '<option value="skip" '+(x.action==="skip"?'selected':'')+'>Skip / Delete duplicate row</option>'+
-     '</select>'
-    :'<span class="tag">Create new</span>')+
-   '</div>';
- }).join("");
-
- $$("[data-dup-action]").forEach(sel=>sel.onchange=()=>{
-  const x=bulkReviewRows[Number(sel.dataset.dupAction)];
-  if(x)x.action=sel.value;
- });
- $("#duplicateReviewPanel").classList.remove("hidden");
-}
-
-function setAllDuplicateActions(action){
- bulkReviewRows.forEach(x=>{if(x.duplicate)x.action=action});
- const reg=$("#bulkImportRegistry").value;
- renderDuplicateReview(reg);
-}
-
-async function reviewBulkImport(){
- const reg=$("#bulkImportRegistry").value;
- const status=$("#bulkImportStatus");
- if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
-
- status.textContent="Reading entries…";
- try{
-  let rows=[];
-  const file=$("#bulkEntryFile").files?.[0];
-
-  if(file){
-   if(bulkWorkbook&& !file.name.toLowerCase().endsWith(".csv")) rows=readSelectedWorkbookSheet();
-   else rows=await readBulkFile(file);
-  }else{
-   rows=parseManualBulkCsv($("#bulkCsvText").value);
-  }
-
-  bulkParsedRows=validateBulkRows(reg,rows);
-  buildDuplicateReview(reg,bulkParsedRows);
-  const dupCount=bulkReviewRows.filter(x=>x.duplicate).length;
-  status.textContent="Review complete. "+bulkParsedRows.length+" rows found, "+dupCount+" duplicate(s).";
- }catch(e){
-  console.error("BULK REVIEW ERROR",e);
-  status.textContent="Failed: "+(e?.message||e);
-  $("#duplicateReviewPanel").classList.add("hidden");
- }
-}
-
-async function runBulkImport(){
- const reg=$("#bulkImportRegistry").value;
- const status=$("#bulkImportStatus");
- const btn=$("#runBulkImport");
- if(profile?.role!=="admin"){status.textContent="Admin access required.";return}
- if(!bulkReviewRows.length){status.textContent="Check the file for duplicates first.";return}
-
- btn.disabled=true;
- showActionProgress("Importing Entries","Applying reviewed duplicate actions…");
-
- let created=0,merged=0,replaced=0,skipped=0;
- try{
-  // We process sequentially so duplicate rows inside the same import remain deterministic.
-  const currentByKey=new Map();
-  (data[reg]||[]).forEach(r=>{
-   const k=makeDuplicateKey(reg,r);
-   if(k&&!currentByKey.has(k))currentByKey.set(k,r);
-  });
-
-  for(const item of bulkReviewRows){
-   const row={...item.row};
-   const key=makeDuplicateKey(reg,row);
-   let existing=key?currentByKey.get(key):null;
-
-   if(item.duplicate&&item.action==="skip"){
-    skipped++;
-    continue;
-   }
-
-   if(existing){
-    const ref=db.collection("registries").doc(reg).collection("records").doc(existing.id);
-
-    if(item.action==="merge"){
-     // Merge only fields that were actually provided by the uploaded file.
-     const mergedData={};
-     (item.providedFields||new Set()).forEach(k=>{
-      const v=row[k];
-      if(String(v??"").trim()!=="")mergedData[k]=v;
-     });
-     mergedData.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
-     mergedData.updatedBy=user.uid;
-     await ref.update(mergedData);
-     Object.assign(existing,mergedData);
-     merged++;
-    }else if(item.action==="replace"){
-     const replacement={
-      ...row,
-      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy:user.uid
-     };
-     // Preserve core creation metadata while replacing content fields.
-     if(existing.createdAt)replacement.createdAt=existing.createdAt;
-     if(existing.createdBy)replacement.createdBy=existing.createdBy;
-     if(existing.createdDate)replacement.createdDate=existing.createdDate;
-     await ref.set(replacement,{merge:false});
-     const newExisting={...replacement,id:existing.id};
-     currentByKey.set(key,newExisting);
-     existing=newExisting;
-     replaced++;
-    }else{
-     skipped++;
-    }
-   }else{
-    const ref=db.collection("registries").doc(reg).collection("records").doc();
-    const payload={
-     ...row,
-     createdAt:firebase.firestore.FieldValue.serverTimestamp(),
-     updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-     createdBy:user.uid,
-     updatedBy:user.uid,
-     createdDate:new Date().toISOString().slice(0,10)
-    };
-
-    // Vehicle checking fields are generated automatically for bulk-created vehicles too.
-    if(reg==="vehicles"){
-     payload.checkedOfficerServiceNo=profile?.service_number||"";
-     payload.checkedDateTime=new Date().toLocaleString("en-GB",{
-      year:"numeric",month:"2-digit",day:"2-digit",
-      hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false
-     });
-     payload.checkedAt=firebase.firestore.FieldValue.serverTimestamp();
-     if(!payload.checkStatus)payload.checkStatus="Checked";
-    }
-
-    await ref.set(payload);
-    const local={...payload,id:ref.id};
-    if(key)currentByKey.set(key,local);
-    created++;
-   }
-  }
-
-  await audit("BULK_CREATE",reg,"","Created "+created+", merged "+merged+", replaced "+replaced+", skipped "+skipped);
-  await refreshRegistryNow(reg);
-
-  closeBulkImport();
-  setActionProgress("Bulk Entry Complete","Created "+created+" · Merged "+merged+" · Replaced "+replaced+" · Skipped "+skipped);
-  toast("Bulk import complete","success",3500);
-  setTimeout(()=>hideActionProgress(),900);
-
- }catch(e){
-  console.error("BULK IMPORT ERROR",e);
-  hideActionProgress();
-  const detail=(e?.code?e.code+": ":"")+(e?.message||String(e));
-  status.textContent="Failed: "+detail;
-  alert("Bulk entry failed.\n\n"+detail);
- }finally{
-  btn.disabled=false;
- }
-}
-
 function renderRegistry(reg){
  const host=$("#"+reg),s=schemas[reg],rows=data[reg],isAdmin=profile?.role==="admin",writeAllowed=canWrite();
  host.innerHTML=
  '<div class="hero"><h2>'+s.icon+' '+s.title+'</h2><p>Hirilandhoo Police official registry</p></div>'+
  '<div class="cards"><div class="metric"><b>'+rows.length+'</b><span>Total records</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>30).length+'</b><span>Valid</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)>=0&&expiryMin(reg,r)<=30).length+'</b><span>Expiring ≤30d</span></div><div class="metric"><b>'+rows.filter(r=>expiryMin(reg,r)<0).length+'</b><span>Expired</span></div><div class="metric"><b>'+rows.filter(r=>r.createdDate===new Date().toISOString().slice(0,10)).length+'</b><span>Added today</span></div></div>'+
  (writeAllowed?'':'<div class="readonly-note">Viewer access: read-only. Add, edit and delete actions are disabled.</div>')+'<div class="toolbar"><div class="search"><input id="search_'+reg+'" placeholder="Search '+s.title.toLowerCase()+'…"></div><select id="filter_'+reg+'"><option value="all">All</option><option value="valid">Valid</option><option value="soon">Expiring</option><option value="expired">Expired</option></select><button class="btn" id="csv_'+reg+'">CSV</button>'+(writeAllowed?'<button class="btn primary" id="new_'+reg+'">＋ New</button>':'')+'</div>'+
- (isAdmin?'<div class="bulkbar bulk-tools"><button class="btn small" id="bulkAdd_'+reg+'">＋ Bulk Entry from Excel / CSV</button><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete Selected</button></div>':'')+
+ (isAdmin?'<div class="bulkbar bulk-tools"><label style="font-size:10px;font-weight:800"><input id="selectAll_'+reg+'" type="checkbox"> Select all visible</label><span id="selectedCount_'+reg+'" class="count">0 selected</span><button class="btn small dangerbtn" id="bulkDelete_'+reg+'" disabled>Delete Selected</button></div>':'')+
  '<div class="panel"><div class="listhead">'+s.title+'</div><div id="list_'+reg+'"></div></div>';
+
+ if(!isAdmin){
+  const csvButton=$("#csv_"+reg);
+  if(csvButton)csvButton.remove();
+ }
 
  const selected=new Set();
 
@@ -1186,7 +799,7 @@ function renderRegistry(reg){
    '<div class="row"'+(isAdmin?' style="grid-template-columns:28px 35px 1.4fr 1fr 1fr 1fr auto"':'')+'>'+
    (isAdmin?'<div class="selectcell"><input type="checkbox" data-select-id="'+r.id+'"></div>':'')+
    '<div class="num">'+(i+1)+'</div>'+
-   '<div><div class="person">'+esc(recordName(reg,r))+'</div><div class="sub">'+esc(s.primary.slice(1).map(k=>r[k]||"—").join(" · "))+'</div></div>'+
+   '<div><div class="person">'+esc(recordName(reg,r))+'</div><div class="sub">'+esc(s.primary.slice(1).map(k=>r[k]||"—").join(" · "))+'</div>'+(reg==="vehicles"&&r.driverIsOwner==="No"&&r.currentDriverName?'<div class="sub"><b>Driver:</b> '+esc(r.currentDriverName)+'</div>':'')+'</div>'+
    '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Home port":"Annual fee")+'</div>'+(reg==="vessels"?esc(r.homePort||"—"):badge(r.annualFeeExpiry||r.passportExpiry))+'</div>'+
    '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Type":"Insurance / permit")+'</div>'+(reg==="vessels"?esc(r.vesselType||"—"):badge(r.insuranceExpiry||r.permitExpiry))+'</div>'+
    '<div class="desktop"><div class="sub">'+(reg==="vessels"?"Status":"Roadworthiness / visa")+'</div>'+(reg==="vessels"?'<span class="tag">'+esc(r.status||"Active")+'</span>':badge(r.roadworthinessExpiry||r.visaExpiry))+'</div>'+
@@ -1206,7 +819,7 @@ function renderRegistry(reg){
  $("#search_"+reg).oninput=draw;
  $("#filter_"+reg).onchange=draw;
  if($("#new_"+reg))$("#new_"+reg).onclick=()=>openForm(reg,null);
- $("#csv_"+reg).onclick=()=>exportCSV(reg);
+ if($("#csv_"+reg))$("#csv_"+reg).onclick=()=>exportCSV(reg);
 
  if(isAdmin){
   $("#bulkAdd_"+reg).onclick=()=>openBulkImport(reg);
@@ -1227,8 +840,20 @@ function renderHome(){
  const alerts=all.filter(([reg,r])=>expiryMin(reg,r)<=30).sort((a,b)=>expiryMin(a[0],a[1])-expiryMin(b[0],b[1])).slice(0,12);
  $("#homeAlerts").innerHTML=alerts.length?alerts.map(([reg,r])=>'<div class="alertitem"><b>'+schemas[reg].title+': '+esc(recordName(reg,r))+'</b><div class="sub">'+schemas[reg].expiry.map(k=>r[k]?esc(expiryFieldLabel(k))+': '+esc(r[k])+' '+badge(r[k]):"").filter(Boolean).join(" &nbsp; ")+'</div></div>').join(""):'<div class="empty">No document expiry alerts.</div>'
 }
-function view(reg,r){const pairs=Object.entries(r).filter(([k,v])=>!["id","createdAt","updatedAt","createdBy","updatedBy","createdDate"].includes(k)&&!k.startsWith("file_")&&typeof v!=="object");$("#detail").innerHTML='<div class="detail"><h2>'+schemas[reg].icon+' '+esc(recordName(reg,r))+'</h2><div class="actions" style="margin:10px 0"><button id="printRec" class="btn small">Print</button>'+(canWrite()?'<button id="editRec" class="btn small">Edit</button><button id="deleteRec" class="btn small deletebtn">Delete</button>':'')+'</div><div class="detailgrid">'+pairs.map(([k,v])=>'<div class="kv"><small>'+esc(k)+'</small><b>'+esc(v||"—")+'</b></div>').join("")+'</div></div>';$("#detailBg").classList.remove("hidden");$("#printRec").onclick=()=>window.print();if($("#editRec"))$("#editRec").onclick=()=>{$("#detailBg").classList.add("hidden");openForm(reg,r)};if($("#deleteRec"))$("#deleteRec").onclick=async()=>{$("#detailBg").classList.add("hidden");await deleteOneRecord(reg,r)}}
-function exportCSV(reg){const rows=data[reg];const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>!["id","createdAt","updatedAt"].includes(k));const out=[keys.join(",")].concat(rows.map(r=>keys.map(k=>'"'+String(r[k]??"").replaceAll('"','""')+'"').join(","))).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([out],{type:"text/csv"}));a.download="hirilandhoo-"+reg+"-registry.csv";a.click()}
+async function view(reg,r){
+ const pairs=Object.entries(r).filter(([k,v])=>!["id","createdAt","updatedAt","createdBy","updatedBy","createdDate","checkedAt","lastEnteredByAt"].includes(k)&&!k.startsWith("file_")&&typeof v!=="object");
+ $("#detail").innerHTML='<div class="detail"><h2>'+schemas[reg].icon+' '+esc(recordName(reg,r))+'</h2><div class="actions" style="margin:10px 0"><button id="printRec" class="btn small">Print</button>'+(canWrite()?'<button id="editRec" class="btn small">Edit</button><button id="deleteRec" class="btn small deletebtn">Delete</button>':'')+'</div><div class="detailgrid">'+pairs.map(([k,v])=>'<div class="kv"><small>'+esc(k)+'</small><b>'+esc(v||"—")+'</b></div>').join("")+'</div><div id="vehicleDriverHistory"></div></div>';
+ $("#detailBg").classList.remove("hidden");
+ $("#printRec").onclick=()=>window.print();
+ if($("#editRec"))$("#editRec").onclick=()=>{$("#detailBg").classList.add("hidden");openForm(reg,r)};
+ if($("#deleteRec"))$("#deleteRec").onclick=async()=>{$("#detailBg").classList.add("hidden");await deleteOneRecord(reg,r)};
+ if(reg==="vehicles"){
+  const host=$("#vehicleDriverHistory");
+  host.innerHTML='<div class="panel" style="margin-top:14px"><div class="listhead">Driver History</div><div class="empty">Loading driver history…</div></div>';
+  const history=await loadVehicleDriverHistory(r.id);
+  host.innerHTML='<div class="panel" style="margin-top:14px"><div class="listhead">Driver History</div>'+(history.length?history.map(h=>{const t=h.recordedAt?.toDate?.()?.toLocaleString()||"Pending timestamp";return '<div class="auditrow"><b>'+esc(h.driverName||"—")+'</b><br><span class="sub">'+esc(t)+'</span>'+(h.recordedByName?'<br><span class="sub">Recorded by: '+esc(h.recordedByName)+(h.recordedByServiceNo?' · '+esc(h.recordedByServiceNo):'')+'</span>':'')+'</div>'}).join(""):'<div class="empty">No separate driver history recorded.</div>')+'</div>';
+ }
+}
 async function save(ev){
  ev.preventDefault();
  const form=$("#form"),saveBtn=$("#save");
@@ -1253,6 +878,8 @@ async function save(ev){
 
   obj.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
   obj.updatedBy=user.uid;
+  Object.assign(obj,loggedOfficerFields());
+  obj.lastEnteredByAt=firebase.firestore.FieldValue.serverTimestamp();
 
   if(registryAtSave==="vehicles"){
    obj.checkedOfficerServiceNo=profile?.service_number||obj.checkedOfficerServiceNo||"";
@@ -1275,6 +902,10 @@ async function save(ev){
    obj.createdAt=firebase.firestore.FieldValue.serverTimestamp();
    obj.createdBy=user.uid;
    obj.createdDate=new Date().toISOString().slice(0,10);
+   obj.createdOfficerUid=user.uid;
+   obj.createdOfficerName=profile?.name||"";
+   obj.createdOfficerUsername=profile?.username||"";
+   obj.createdOfficerServiceNo=profile?.service_number||"";
    ref=await db.collection("registries").doc(registryAtSave).collection("records").add(obj);
    id=ref.id;
   }
@@ -1316,6 +947,9 @@ async function save(ev){
   await refreshRegistryNow(registryAtSave);
 
   await audit(isEdit?"UPDATE":"CREATE",registryAtSave,id,recordName(registryAtSave,isEdit?{...editingAtSave,...obj}:{...obj,id}));
+  if(registryAtSave==="vehicles"&&obj.driverIsOwner==="No"&&String(obj.currentDriverName||"").trim()){
+   await logVehicleDriver(id,obj.currentDriverName,obj.ownerName||editingAtSave?.ownerName||"");
+  }
   if(!isEdit)await incrementEntryStats();
 
   setActionProgress(isEdit?"Update Complete":"Save Complete",isEdit?"Record updated successfully.":"Record added successfully.");
@@ -1557,32 +1191,7 @@ $$('input[name="themeAccent"]').forEach(r=>r.onchange=async()=>{
 });
 
 
-$("#bulkEntryFile").onchange=async()=>{
- const f=$("#bulkEntryFile").files?.[0];
- $("#bulkFileMeta").textContent=f?f.name+" · "+Math.round(f.size/1024)+" KB":"No file selected.";
- bulkWorkbook=null;
- $("#bulkSheetSelect").innerHTML="<option>First sheet</option>";
- $("#bulkSheetSelect").disabled=true;
- $("#duplicateReviewPanel").classList.add("hidden");
- if(f&&!f.name.toLowerCase().endsWith(".csv")){
-  try{
-   await readBulkFile(f);
-   $("#bulkFileMeta").textContent=f.name+" · "+Math.round(f.size/1024)+" KB · "+bulkWorkbook.SheetNames.length+" sheet(s)";
-  }catch(e){
-   $("#bulkImportStatus").textContent="Could not read Excel file: "+(e?.message||e);
-  }
- }
-};
-$("#bulkSheetSelect").onchange=()=>$("#duplicateReviewPanel").classList.add("hidden");
-$("#reviewBulkImport").onclick=reviewBulkImport;
-$("#runBulkImport").onclick=runBulkImport;
-$("#clearBulkImport").onclick=clearBulkImport;
-$("#allDuplicatesMerge").onclick=()=>setAllDuplicateActions("merge");
-$("#allDuplicatesReplace").onclick=()=>setAllDuplicateActions("replace");
-$("#allDuplicatesSkip").onclick=()=>setAllDuplicateActions("skip");
 
-$("#closeBulkImport").onclick=closeBulkImport;
-$("#cancelBulkImport").onclick=closeBulkImport;
 
 $("#roleManagerForm").onsubmit=saveManagedRole;
 $("#closeRoleManager").onclick=closeRoleManager;

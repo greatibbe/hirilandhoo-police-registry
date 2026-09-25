@@ -50,6 +50,14 @@ service cloud.firestore {
       allow update, delete: if approvedAdmin();
     }
 
+
+    match /registries/vehicles/records/{recordId}/drivers/{driverLogId} {
+      allow read: if approvedUser();
+      allow create: if canWriteRegistry()
+                    && request.resource.data.recordedByUid == request.auth.uid;
+      allow update, delete: if approvedAdmin();
+    }
+
     match /auditLogs/{logId} {
       allow create: if approvedUser();
       allow read: if approvedAdmin();
